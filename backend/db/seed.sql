@@ -5,6 +5,9 @@ INSERT INTO employees (
   employee_code,
   first_name,
   last_name,
+  english_name,
+  chinese_name,
+  preferred_language,
   email,
   phone,
   role_title,
@@ -13,16 +16,19 @@ INSERT INTO employees (
   hired_on
 )
 VALUES
-  ('EMP-1001', 'Olivia', 'Martin', 'olivia.martin@example.com', '+1-555-0101', 'Supervisor', 'full_time', 'active', '2024-02-12'),
-  ('EMP-1002', 'Ethan', 'Clark', 'ethan.clark@example.com', '+1-555-0102', 'Cashier', 'part_time', 'active', '2024-03-05'),
-  ('EMP-1003', 'Mia', 'Johnson', 'mia.johnson@example.com', '+1-555-0103', 'Stock Associate', 'part_time', 'active', '2024-04-17'),
-  ('EMP-1004', 'Noah', 'Williams', 'noah.williams@example.com', '+1-555-0104', 'Barista', 'part_time', 'active', '2024-05-03'),
-  ('EMP-1005', 'Sophia', 'Davis', 'sophia.davis@example.com', '+1-555-0105', 'Assistant Manager', 'full_time', 'active', '2023-11-20')
+  ('EMP-1001', 'Olivia', 'Martin', 'Olivia Martin', '王莉維亞', 'en', 'olivia.martin@example.com', '+1-555-0101', 'Supervisor', 'full_time', 'active', '2024-02-12'),
+  ('EMP-1002', 'Ethan', 'Clark', 'Ethan Clark', '克拉克', 'en', 'ethan.clark@example.com', '+1-555-0102', 'Cashier', 'part_time', 'active', '2024-03-05'),
+  ('EMP-1003', 'Mia', 'Johnson', 'Mia Johnson', '米婭', 'zh-TW', 'mia.johnson@example.com', '+1-555-0103', 'Stock Associate', 'part_time', 'active', '2024-04-17'),
+  ('EMP-1004', 'Noah', 'Williams', 'Noah Williams', '諾亞', 'zh-TW', 'noah.williams@example.com', '+1-555-0104', 'Barista', 'part_time', 'active', '2024-05-03'),
+  ('EMP-1005', 'Sophia', 'Davis', 'Sophia Davis', '蘇菲亞', 'en', 'sophia.davis@example.com', '+1-555-0105', 'Assistant Manager', 'full_time', 'active', '2023-11-20')
 ON CONFLICT (email) DO UPDATE
 SET
   employee_code = EXCLUDED.employee_code,
   first_name = EXCLUDED.first_name,
   last_name = EXCLUDED.last_name,
+  english_name = EXCLUDED.english_name,
+  chinese_name = EXCLUDED.chinese_name,
+  preferred_language = EXCLUDED.preferred_language,
   phone = EXCLUDED.phone,
   role_title = EXCLUDED.role_title,
   employment_type = EXCLUDED.employment_type,

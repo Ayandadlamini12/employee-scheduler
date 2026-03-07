@@ -6,6 +6,9 @@ CREATE TABLE IF NOT EXISTS employees (
   employee_code VARCHAR(30) UNIQUE,
   first_name VARCHAR(100) NOT NULL,
   last_name VARCHAR(100) NOT NULL,
+  english_name VARCHAR(255),
+  chinese_name VARCHAR(255),
+  preferred_language VARCHAR(10) NOT NULL DEFAULT 'en',
   email VARCHAR(255) NOT NULL UNIQUE,
   phone VARCHAR(30),
   role_title VARCHAR(100) NOT NULL,
@@ -15,7 +18,8 @@ CREATE TABLE IF NOT EXISTS employees (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT employees_status_check CHECK (status IN ('active', 'inactive', 'on_leave', 'terminated')),
-  CONSTRAINT employees_employment_type_check CHECK (employment_type IN ('full_time', 'part_time', 'contract', 'temp'))
+  CONSTRAINT employees_employment_type_check CHECK (employment_type IN ('full_time', 'part_time', 'contract', 'temp')),
+  CONSTRAINT employees_preferred_language_check CHECK (preferred_language IN ('en', 'zh-TW'))
 );
 
 -- Shift templates (e.g. opening, mid, closing).
@@ -95,10 +99,25 @@ CREATE TABLE IF NOT EXISTS requests (
   )
 );
 
+-- Fixed weekly schedule template by employee and weekday.
+-- day_of_week follows PostgreSQL/JS convention: 0=Sunday ... 6=Saturday.
+CREATE TABLE IF NOT EXISTS employee_fixed_schedule (
+  id BIGSERIAL PRIMARY KEY,
+  employee_id BIGINT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  day_of_week SMALLINT NOT NULL,
+  shift_id BIGINT NOT NULL REFERENCES shifts(id) ON DELETE RESTRICT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT employee_fixed_schedule_day_of_week_check CHECK (day_of_week BETWEEN 0 AND 6),
+  CONSTRAINT employee_fixed_schedule_unique_employee_day UNIQUE (employee_id, day_of_week)
+);
+
 CREATE INDEX IF NOT EXISTS idx_schedules_employee_date ON schedules (employee_id, schedule_date);
 CREATE INDEX IF NOT EXISTS idx_schedules_date ON schedules (schedule_date);
 CREATE INDEX IF NOT EXISTS idx_availability_employee ON availability (employee_id);
 CREATE INDEX IF NOT EXISTS idx_requests_employee_status ON requests (employee_id, status);
 CREATE INDEX IF NOT EXISTS idx_requests_schedule ON requests (schedule_id);
+CREATE INDEX IF NOT EXISTS idx_employee_fixed_schedule_employee ON employee_fixed_schedule (employee_id);
+CREATE INDEX IF NOT EXISTS idx_employee_fixed_schedule_shift ON employee_fixed_schedule (shift_id);
 
 COMMIT;
