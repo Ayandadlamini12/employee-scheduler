@@ -4,10 +4,10 @@ import Dashboard from "./pages/Dashboard"
 import Scheduler from "./pages/Scheduler"
 import Employees from "./pages/Employees"
 import Requests from "./pages/Requests"
+import { API_BASE_URL } from "./config/api"
 
 const LANGUAGE_STORAGE_KEY = "preferredLanguage"
 const EMPLOYEE_ID_STORAGE_KEY = "currentEmployeeId"
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000"
 
 function getBrowserLanguage() {
   if (typeof navigator === "undefined") {

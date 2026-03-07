@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { API_BASE_URL } from "../config/api"
 
 const shiftTypeStyles = {
   opening: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
@@ -7,8 +8,6 @@ const shiftTypeStyles = {
   closing: "bg-violet-50 text-violet-700 ring-1 ring-violet-200",
   weekend: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
 }
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000"
 
 function parseDateOnly(value) {
   const [year, month, day] = String(value).slice(0, 10).split("-").map(Number)

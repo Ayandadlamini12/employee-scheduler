@@ -1,9 +1,19 @@
 const express = require("express")
 const cron = require("node-cron")
+const cors = require("cors")
 const { Pool } = require("pg")
 const app = express()
 
 app.use(express.json())
+
+const corsOrigin = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim())
+    : true
+
+app.use(cors({
+    origin: corsOrigin,
+    credentials: true,
+}))
 
 const pool = new Pool({
     host: process.env.PGHOST || "postgres",
@@ -659,6 +669,6 @@ app.post("/admin/generate-schedule", async (req, res) => {
 
 startFixedScheduleCronJob()
 
-app.listen(4000, ()=>{
-    console.log("Backend running on port 4000")
+app.listen(4000, "0.0.0.0", ()=>{
+    console.log("Backend running on 0.0.0.0:4000")
 })
