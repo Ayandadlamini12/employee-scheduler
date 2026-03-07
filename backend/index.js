@@ -26,6 +26,36 @@ app.get("/employees", async (req, res) => {
     }
 })
 
+app.get("/schedule", async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT
+                s.id,
+                s.schedule_date,
+                s.status,
+                s.notes,
+                s.employee_id,
+                e.first_name,
+                e.last_name,
+                e.role_title,
+                s.shift_id,
+                sh.name AS shift_name,
+                sh.start_time,
+                sh.end_time,
+                sh.is_overnight
+            FROM schedules s
+            JOIN employees e ON e.id = s.employee_id
+            JOIN shifts sh ON sh.id = s.shift_id
+            ORDER BY s.schedule_date ASC, sh.start_time ASC, e.last_name ASC, e.first_name ASC
+        `)
+
+        res.json(result.rows)
+    } catch (error) {
+        console.error("Failed to fetch schedule:", error)
+        res.status(500).json({ error: "Failed to fetch schedule" })
+    }
+})
+
 app.listen(4000, ()=>{
     console.log("Backend running on port 4000")
 })
