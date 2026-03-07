@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+
+  postgres:
+    image: postgres:15
+    container_name: scheduler-db
+    restart: always
+    environment:
+      POSTGRES_USER: scheduler
+      POSTGRES_PASSWORD: schedulerpass
+      POSTGRES_DB: schedulerdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+
+  backend:
+    image: node:20
+    container_name: scheduler-backend
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    command: sh -c "npm install && npm run dev"
+    ports:
+      - "4000:4000"
+    depends_on:
+      - postgres
+
+  frontend:
+    image: node:20
+    container_name: scheduler-frontend
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    command: sh -c "npm install && npm run dev"
+    ports:
+      - "3100:5173"
+
+  workspace:
+    image: node:20
+    container_name: scheduler-workspace
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+    stdin_open: true
+    tty: true
+
+volumes:
+  dbdata:
