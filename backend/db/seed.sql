@@ -1,6 +1,7 @@
 BEGIN;
 
 -- Seed employees (upsert by unique email).
+-- Default login password for seeded users is ChangeMe123! and must be changed on first login.
 INSERT INTO employees (
   employee_code,
   first_name,
@@ -8,6 +9,9 @@ INSERT INTO employees (
   english_name,
   chinese_name,
   preferred_language,
+  role,
+  password_hash,
+  must_change_password,
   email,
   phone,
   role_title,
@@ -16,11 +20,11 @@ INSERT INTO employees (
   hired_on
 )
 VALUES
-  ('EMP-1001', 'Olivia', 'Martin', 'Olivia Martin', '王莉維亞', 'en', 'olivia.martin@example.com', '+1-555-0101', 'Supervisor', 'full_time', 'active', '2024-02-12'),
-  ('EMP-1002', 'Ethan', 'Clark', 'Ethan Clark', '克拉克', 'en', 'ethan.clark@example.com', '+1-555-0102', 'Cashier', 'part_time', 'active', '2024-03-05'),
-  ('EMP-1003', 'Mia', 'Johnson', 'Mia Johnson', '米婭', 'zh-TW', 'mia.johnson@example.com', '+1-555-0103', 'Stock Associate', 'part_time', 'active', '2024-04-17'),
-  ('EMP-1004', 'Noah', 'Williams', 'Noah Williams', '諾亞', 'zh-TW', 'noah.williams@example.com', '+1-555-0104', 'Barista', 'part_time', 'active', '2024-05-03'),
-  ('EMP-1005', 'Sophia', 'Davis', 'Sophia Davis', '蘇菲亞', 'en', 'sophia.davis@example.com', '+1-555-0105', 'Assistant Manager', 'full_time', 'active', '2023-11-20')
+  ('EMP-1001', 'Olivia', 'Martin', 'Olivia Martin', E'\u738b\u8389\u7dad\u4e9e', 'en', 'team_leader', 'scrypt:1208b221ccaa77be8adc5eb11cfe95fd:a79202ff21bfdfa5cc20a77d4a36446a333cce9d1b06b735389b2a4a195f188f688da2d9ac856477e61672a0ab14374eff2a5855541539c95c037344280ef65d', TRUE, 'olivia.martin@example.com', '+1-555-0101', 'Supervisor', 'full_time', 'active', '2024-02-12'),
+  ('EMP-1002', 'Ethan', 'Clark', 'Ethan Clark', E'\u514b\u62c9\u514b', 'en', 'employee', 'scrypt:1208b221ccaa77be8adc5eb11cfe95fd:a79202ff21bfdfa5cc20a77d4a36446a333cce9d1b06b735389b2a4a195f188f688da2d9ac856477e61672a0ab14374eff2a5855541539c95c037344280ef65d', TRUE, 'ethan.clark@example.com', '+1-555-0102', 'Cashier', 'part_time', 'active', '2024-03-05'),
+  ('EMP-1003', 'Mia', 'Johnson', 'Mia Johnson', E'\u7c73\u5a6d', 'zh-TW', 'employee', 'scrypt:1208b221ccaa77be8adc5eb11cfe95fd:a79202ff21bfdfa5cc20a77d4a36446a333cce9d1b06b735389b2a4a195f188f688da2d9ac856477e61672a0ab14374eff2a5855541539c95c037344280ef65d', TRUE, 'mia.johnson@example.com', '+1-555-0103', 'Stock Associate', 'part_time', 'active', '2024-04-17'),
+  ('EMP-1004', 'Noah', 'Williams', 'Noah Williams', E'\u8afe\u4e9e', 'zh-TW', 'employee', 'scrypt:1208b221ccaa77be8adc5eb11cfe95fd:a79202ff21bfdfa5cc20a77d4a36446a333cce9d1b06b735389b2a4a195f188f688da2d9ac856477e61672a0ab14374eff2a5855541539c95c037344280ef65d', TRUE, 'noah.williams@example.com', '+1-555-0104', 'Barista', 'part_time', 'active', '2024-05-03'),
+  ('EMP-1005', 'Sophia', 'Davis', 'Sophia Davis', E'\u8607\u83f2\u4e9e', 'en', 'manager', 'scrypt:1208b221ccaa77be8adc5eb11cfe95fd:a79202ff21bfdfa5cc20a77d4a36446a333cce9d1b06b735389b2a4a195f188f688da2d9ac856477e61672a0ab14374eff2a5855541539c95c037344280ef65d', TRUE, 'sophia.davis@example.com', '+1-555-0105', 'Assistant Manager', 'full_time', 'active', '2023-11-20')
 ON CONFLICT (email) DO UPDATE
 SET
   employee_code = EXCLUDED.employee_code,
@@ -29,6 +33,9 @@ SET
   english_name = EXCLUDED.english_name,
   chinese_name = EXCLUDED.chinese_name,
   preferred_language = EXCLUDED.preferred_language,
+  role = EXCLUDED.role,
+  password_hash = COALESCE(employees.password_hash, EXCLUDED.password_hash),
+  must_change_password = COALESCE(employees.must_change_password, EXCLUDED.must_change_password),
   phone = EXCLUDED.phone,
   role_title = EXCLUDED.role_title,
   employment_type = EXCLUDED.employment_type,

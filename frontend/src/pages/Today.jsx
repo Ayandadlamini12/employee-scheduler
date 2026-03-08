@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { API_BASE_URL } from "../config/api"
+import { apiFetch } from "../config/api"
 
 function formatTime(value) {
   if (!value) return "-"
@@ -51,7 +51,7 @@ export default function Today() {
         setIsLoading(true)
         setError("")
 
-        const response = await fetch(`${API_BASE_URL}/schedule/today`, {
+        const response = await apiFetch("/schedule/today", {
           signal: controller.signal,
         })
 
@@ -109,9 +109,8 @@ export default function Today() {
       setIsSaving(true)
       setSubmitError("")
 
-      const response = await fetch(`${API_BASE_URL}/schedule/${selectedRow.schedule_id}`, {
+      const response = await apiFetch(`/schedule/${selectedRow.schedule_id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           start_time: startTime,
           end_time: endTime,

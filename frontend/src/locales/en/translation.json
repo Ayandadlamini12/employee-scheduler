@@ -4,6 +4,37 @@
   "selectLanguageBody": "Choose your preferred language to continue.",
   "languageEnglish": "English",
   "languageChineseTraditional": "Traditional Chinese",
+  "logout": "Logout",
+  "authChecking": "Checking session...",
+  "auth": {
+    "login": {
+      "title": "Sign In",
+      "subtitle": "Use your email or phone and password to continue.",
+      "username": "Email or Phone",
+      "usernamePlaceholder": "name@example.com or +1-555-0101",
+      "password": "Password",
+      "passwordPlaceholder": "Enter your password",
+      "submit": "Sign In",
+      "submitting": "Signing in...",
+      "validation": "Username and password are required.",
+      "failed": "Invalid username or password.",
+      "defaultPasswordHint": "First-time accounts use the default password and require a password change."
+    },
+    "changePassword": {
+      "title": "Change Password",
+      "subtitle": "Please set a new password before using the system.",
+      "account": "Account: {{account}}",
+      "currentPassword": "Current Password",
+      "newPassword": "New Password",
+      "confirmPassword": "Confirm New Password",
+      "submit": "Update Password",
+      "submitting": "Updating...",
+      "validation": "All password fields are required.",
+      "minLength": "New password must be at least 8 characters.",
+      "mismatch": "New password and confirmation do not match.",
+      "failed": "Failed to update password."
+    }
+  },
   "dashboard": "Dashboard",
   "employeeDashboard": {
     "nav": "My Dashboard",
@@ -77,6 +108,7 @@
   "dashboardStatsLoadError": "Failed to load dashboard stats.",
   "dashboardTodayShiftsLoadError": "Failed to load today's schedule.",
   "requests": "Requests",
+  "pendingRequests": "Pending Requests",
   "weeklySchedule": "Weekly Schedule",
   "weekOfRange": "Week of {{start}} to {{end}}",
   "opening": "Opening",

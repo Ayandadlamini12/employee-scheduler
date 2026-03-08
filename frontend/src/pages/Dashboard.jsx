@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { API_BASE_URL } from "../config/api"
+import { apiFetch } from "../config/api"
 
 function MetricIcon({ type }) {
   const commonClass = "h-5 w-5"
@@ -68,8 +68,8 @@ export default function Dashboard() {
         setTodayShiftsError("")
 
         const [statsResult, todayShiftsResult] = await Promise.allSettled([
-          fetch(`${API_BASE_URL}/stats/dashboard`, { signal: controller.signal }),
-          fetch(`${API_BASE_URL}/stats/today-shifts`, { signal: controller.signal }),
+          apiFetch("/stats/dashboard", { signal: controller.signal }),
+          apiFetch("/stats/today-shifts", { signal: controller.signal }),
         ])
 
         if (statsResult.status === "fulfilled") {
@@ -153,7 +153,7 @@ export default function Dashboard() {
           <div className="mb-3 inline-flex rounded-lg bg-amber-600 p-2 text-white">
             <MetricIcon type="requests" />
           </div>
-          <p className="text-sm font-semibold text-slate-700">{t("requests")}</p>
+          <p className="text-sm font-semibold text-slate-700">{t("pendingRequests")}</p>
           <h2 className="mt-1 text-3xl font-extrabold text-slate-950">
             {isLoading ? "-" : stats.pending_requests}
           </h2>

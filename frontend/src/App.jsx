@@ -6,10 +6,16 @@ import Today from "./pages/Today"
 import Scheduler from "./pages/Scheduler"
 import Employees from "./pages/Employees"
 import Requests from "./pages/Requests"
-import { API_BASE_URL } from "./config/api"
+import Login from "./pages/Login"
+import ChangePassword from "./pages/ChangePassword"
+import {
+  apiFetch,
+  clearAuthSession,
+  getAuthSession,
+  setAuthSession as persistAuthSession,
+} from "./config/api"
 
 const LANGUAGE_STORAGE_KEY = "preferredLanguage"
-const EMPLOYEE_ID_STORAGE_KEY = "currentEmployeeId"
 
 function NavIcon({ icon }) {
   const commonClass = "h-4 w-4 shrink-0"
@@ -82,56 +88,100 @@ function normalizeLanguage(value) {
   return null
 }
 
+function isAdminRole(role) {
+  return role === "team_leader" || role === "manager"
+}
+
 export default function App() {
   const { t, i18n } = useTranslation()
+  const [authSession, setAuthSessionState] = useState(() => getAuthSession())
+  const [isAuthChecking, setIsAuthChecking] = useState(() => Boolean(getAuthSession()?.token))
   const [page, setPage] = useState("dashboard")
   const [showLanguagePrompt, setShowLanguagePrompt] = useState(false)
-  const [employeeId] = useState(() => {
-    const storedEmployeeId = localStorage.getItem(EMPLOYEE_ID_STORAGE_KEY)
-    if (storedEmployeeId) return storedEmployeeId
 
-    const fallbackEmployeeId = String(import.meta.env.VITE_EMPLOYEE_ID || "1")
-    localStorage.setItem(EMPLOYEE_ID_STORAGE_KEY, fallbackEmployeeId)
-    return fallbackEmployeeId
-  })
+  const authUser = authSession?.user || null
+  const isAuthenticated = Boolean(authSession?.token && authUser)
+  const isAdmin = isAdminRole(authUser?.role)
+  const isChinese = i18n.resolvedLanguage === "zh-TW"
+
+  function setAuthSession(nextSession) {
+    setAuthSessionState(nextSession)
+
+    if (nextSession) {
+      persistAuthSession(nextSession)
+    } else {
+      clearAuthSession()
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
 
-    async function initializeLanguage() {
-      const storedLanguage = normalizeLanguage(localStorage.getItem(LANGUAGE_STORAGE_KEY))
-      const browserLanguage = normalizeLanguage(getBrowserLanguage()) || "en"
-      let backendLanguage = null
-
-      if (employeeId) {
-        try {
-          const response = await fetch(`${API_BASE_URL}/employees/${employeeId}`)
-          if (response.ok) {
-            const employee = await response.json()
-            backendLanguage = normalizeLanguage(employee.preferred_language)
-          }
-        } catch (error) {
-          console.error("Failed to load employee language preference:", error)
-        }
+    async function validateSession() {
+      if (!authSession?.token) {
+        setIsAuthChecking(false)
+        return
       }
 
-      const initialLanguage = backendLanguage || storedLanguage || browserLanguage || "en"
+      try {
+        const response = await apiFetch("/auth/me")
+        if (!response.ok) {
+          if (!cancelled) {
+            setAuthSession(null)
+          }
+          return
+        }
 
-      if (!cancelled) {
-        i18n.changeLanguage(initialLanguage)
-        localStorage.setItem(LANGUAGE_STORAGE_KEY, initialLanguage)
-        setShowLanguagePrompt(!backendLanguage && !storedLanguage)
+        const data = await response.json()
+        if (!cancelled) {
+          setAuthSession({
+            token: authSession.token,
+            user: data.user,
+          })
+        }
+      } catch {
+        if (!cancelled) {
+          setAuthSession(null)
+        }
+      } finally {
+        if (!cancelled) {
+          setIsAuthChecking(false)
+        }
       }
     }
 
-    initializeLanguage()
+    validateSession()
 
     return () => {
       cancelled = true
     }
-  }, [employeeId, i18n])
+  }, [authSession?.token])
 
-  const isChinese = i18n.resolvedLanguage === "zh-TW"
+  useEffect(() => {
+    const storedLanguage = normalizeLanguage(localStorage.getItem(LANGUAGE_STORAGE_KEY))
+    const backendLanguage = normalizeLanguage(authUser?.preferred_language)
+    const browserLanguage = normalizeLanguage(getBrowserLanguage()) || "en"
+    const initialLanguage = backendLanguage || storedLanguage || browserLanguage || "en"
+
+    i18n.changeLanguage(initialLanguage)
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, initialLanguage)
+    setShowLanguagePrompt(isAuthenticated && !backendLanguage && !storedLanguage)
+  }, [authUser?.preferred_language, i18n, isAuthenticated])
+
+  useEffect(() => {
+    if (!isAuthenticated || !authUser) return
+
+    if (authUser.must_change_password) return
+
+    if (isAdmin && page === "employeeDashboard") {
+      setPage("dashboard")
+      return
+    }
+
+    if (!isAdmin && page !== "employeeDashboard") {
+      setPage("employeeDashboard")
+    }
+  }, [authUser, isAdmin, isAuthenticated, page])
 
   async function handleLanguageChange(language, closePrompt = false) {
     const normalizedLanguage = normalizeLanguage(language) || "en"
@@ -139,12 +189,19 @@ export default function App() {
     i18n.changeLanguage(normalizedLanguage)
     localStorage.setItem(LANGUAGE_STORAGE_KEY, normalizedLanguage)
 
-    if (employeeId) {
+    if (authUser?.id) {
       try {
-        await fetch(`${API_BASE_URL}/employees/${employeeId}/language`, {
+        await apiFetch(`/employees/${authUser.id}/language`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ preferred_language: normalizedLanguage }),
+        })
+
+        setAuthSession({
+          ...authSession,
+          user: {
+            ...authUser,
+            preferred_language: normalizedLanguage,
+          },
         })
       } catch (error) {
         console.error("Failed to persist language preference:", error)
@@ -156,25 +213,69 @@ export default function App() {
     }
   }
 
-  const navItems = useMemo(
-    () => [
+  function handleLoginSuccess(nextSession) {
+    setAuthSession(nextSession)
+    const nextIsAdmin = isAdminRole(nextSession?.user?.role)
+    setPage(nextIsAdmin ? "dashboard" : "employeeDashboard")
+  }
+
+  function handlePasswordChanged(nextSession) {
+    setAuthSession(nextSession)
+  }
+
+  function handleLogout() {
+    setAuthSession(null)
+    setPage("dashboard")
+  }
+
+  const navItems = useMemo(() => {
+    if (!isAdmin) {
+      return [
+        { key: "employeeDashboard", label: t("employeeDashboard.nav"), icon: "employeeDashboard" },
+      ]
+    }
+
+    return [
       { key: "dashboard", label: t("dashboard"), icon: "dashboard" },
-      { key: "employeeDashboard", label: t("employeeDashboard.nav"), icon: "employeeDashboard" },
       { key: "today", label: t("today.nav"), icon: "today" },
       { key: "scheduler", label: t("scheduler"), icon: "scheduler" },
       { key: "employees", label: t("employees.label"), icon: "employees" },
       { key: "requests", label: t("adminRequests"), icon: "requests" },
-    ],
-    [t]
-  )
+    ]
+  }, [isAdmin, t])
 
   const renderPage = () => {
-    if (page === "employeeDashboard") return <EmployeeDashboard employeeId={employeeId} />
+    if (!isAdmin) {
+      return <EmployeeDashboard employeeId={String(authUser?.id || "")} />
+    }
+
     if (page === "today") return <Today />
     if (page === "scheduler") return <Scheduler />
     if (page === "employees") return <Employees />
     if (page === "requests") return <Requests />
     return <Dashboard />
+  }
+
+  if (isAuthChecking) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100">
+        <p className="text-sm font-semibold text-slate-600">{t("authChecking", { defaultValue: "Checking session..." })}</p>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return <Login onLoginSuccess={handleLoginSuccess} onLanguageChange={handleLanguageChange} isChinese={isChinese} />
+  }
+
+  if (authUser.must_change_password) {
+    return (
+      <ChangePassword
+        user={authUser}
+        onPasswordChanged={handlePasswordChanged}
+        onLogout={handleLogout}
+      />
+    )
   }
 
   return (
@@ -202,6 +303,18 @@ export default function App() {
             )
           })}
         </nav>
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="mt-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 md:mt-8"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <path d="M16 17l5-5-5-5M21 12H9" />
+          </svg>
+          {t("logout", { defaultValue: "Logout" })}
+        </button>
       </aside>
 
       <main className="flex-1 overflow-hidden">

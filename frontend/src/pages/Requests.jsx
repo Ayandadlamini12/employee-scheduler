@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { API_BASE_URL } from "../config/api"
+import { apiFetch } from "../config/api"
 
 function formatDate(value, locale) {
   if (!value) return "-"
@@ -79,7 +79,7 @@ export default function Requests() {
       setIsLoading(true)
       setError("")
 
-      const response = await fetch(`${API_BASE_URL}/requests`, { signal })
+      const response = await apiFetch("/requests", { signal })
       if (!response.ok) {
         throw new Error(`Failed with status ${response.status}`)
       }
@@ -106,16 +106,14 @@ export default function Requests() {
       setUpdatingRequestId(id)
       setError("")
 
-      let response = await fetch(`${API_BASE_URL}/requests/${id}/status`, {
+      let response = await apiFetch(`/requests/${id}/status`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       })
 
       if (response.status === 404) {
-        response = await fetch(`${API_BASE_URL}/requests/${id}`, {
+        response = await apiFetch(`/requests/${id}`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status }),
         })
       }

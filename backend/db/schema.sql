@@ -9,6 +9,9 @@ CREATE TABLE IF NOT EXISTS employees (
   english_name VARCHAR(255),
   chinese_name VARCHAR(255),
   preferred_language VARCHAR(10) NOT NULL DEFAULT 'en',
+  role VARCHAR(30) NOT NULL DEFAULT 'employee',
+  password_hash TEXT,
+  must_change_password BOOLEAN NOT NULL DEFAULT TRUE,
   email VARCHAR(255) NOT NULL UNIQUE,
   phone VARCHAR(30),
   role_title VARCHAR(100) NOT NULL,
@@ -19,6 +22,7 @@ CREATE TABLE IF NOT EXISTS employees (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT employees_status_check CHECK (status IN ('active', 'inactive', 'on_leave', 'terminated')),
   CONSTRAINT employees_employment_type_check CHECK (employment_type IN ('full_time', 'part_time', 'contract', 'temp')),
+  CONSTRAINT employees_role_check CHECK (role IN ('employee', 'team_leader', 'manager')),
   CONSTRAINT employees_preferred_language_check CHECK (preferred_language IN ('en', 'zh-TW'))
 );
 

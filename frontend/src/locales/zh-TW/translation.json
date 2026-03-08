@@ -4,6 +4,37 @@
   "selectLanguageBody": "請選擇偏好語言以繼續。",
   "languageEnglish": "English",
   "languageChineseTraditional": "繁體中文",
+  "logout": "登出",
+  "authChecking": "檢查登入狀態中...",
+  "auth": {
+    "login": {
+      "title": "登入",
+      "subtitle": "請使用電子郵件或手機與密碼繼續。",
+      "username": "電子郵件或手機",
+      "usernamePlaceholder": "name@example.com 或 +1-555-0101",
+      "password": "密碼",
+      "passwordPlaceholder": "輸入密碼",
+      "submit": "登入",
+      "submitting": "登入中...",
+      "validation": "請輸入帳號和密碼。",
+      "failed": "帳號或密碼錯誤。",
+      "defaultPasswordHint": "首次帳號使用預設密碼，並需先更改密碼。"
+    },
+    "changePassword": {
+      "title": "更改密碼",
+      "subtitle": "請先設定新密碼後再使用系統。",
+      "account": "帳號：{{account}}",
+      "currentPassword": "目前密碼",
+      "newPassword": "新密碼",
+      "confirmPassword": "確認新密碼",
+      "submit": "更新密碼",
+      "submitting": "更新中...",
+      "validation": "請填寫所有密碼欄位。",
+      "minLength": "新密碼至少需 8 碼。",
+      "mismatch": "新密碼與確認密碼不一致。",
+      "failed": "更新密碼失敗。"
+    }
+  },
   "dashboard": "儀表板",
   "employeeDashboard": {
     "nav": "我的儀表板",
@@ -77,6 +108,7 @@
   "dashboardStatsLoadError": "載入儀表板統計失敗。",
   "dashboardTodayShiftsLoadError": "載入今日排班失敗。",
   "requests": "請求",
+  "pendingRequests": "待處理請求",
   "weeklySchedule": "每週排班",
   "weekOfRange": "{{start}} 到 {{end}}",
   "opening": "早班",

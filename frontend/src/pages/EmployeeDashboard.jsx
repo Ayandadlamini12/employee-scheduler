@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { API_BASE_URL } from "../config/api"
+import { apiFetch } from "../config/api"
 
 function formatTime(value) {
   if (!value) return "-"
@@ -66,9 +66,9 @@ export default function EmployeeDashboard({ employeeId }) {
       setError("")
 
       const [shiftsResponse, employeesResponse, requestsResponse] = await Promise.all([
-        fetch(`${API_BASE_URL}/employees/${employeeId}/tomorrow-shifts`, { signal }),
-        fetch(`${API_BASE_URL}/employees`, { signal }),
-        fetch(`${API_BASE_URL}/requests`, { signal }),
+        apiFetch(`/employees/${employeeId}/tomorrow-shifts`, { signal }),
+        apiFetch(`/employees/${employeeId}/coworkers`, { signal }),
+        apiFetch("/requests", { signal }),
       ])
 
       if (!shiftsResponse.ok) {
@@ -168,9 +168,8 @@ export default function EmployeeDashboard({ employeeId }) {
       setIsSubmitting(true)
       setSubmitError("")
 
-      const response = await fetch(`${API_BASE_URL}/requests/absence-replacement`, {
+      const response = await apiFetch("/requests/absence-replacement", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           employee_id: Number(employeeId),
           schedule_id: selectedShift.schedule_id,

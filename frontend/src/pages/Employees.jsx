@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { API_BASE_URL } from "../config/api"
+import { apiFetch } from "../config/api"
 
 function statusBadgeClass(status) {
   const normalized = String(status || "").toLowerCase()
@@ -47,7 +47,7 @@ export default function Employees() {
         setIsLoading(true)
         setError("")
 
-        const response = await fetch(`${API_BASE_URL}/employees`, {
+        const response = await apiFetch("/employees", {
           signal: controller.signal,
         })
 

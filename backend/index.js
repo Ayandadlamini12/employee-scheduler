@@ -1,6 +1,7 @@
 const express = require("express")
 const cron = require("node-cron")
 const cors = require("cors")
+const crypto = require("crypto")
 const { Pool } = require("pg")
 const app = express()
 
@@ -25,6 +26,164 @@ const pool = new Pool({
 
 const FIXED_SCHEDULE_CRON = process.env.FIXED_SCHEDULE_CRON || "55 23 * * 0"
 const FIXED_SCHEDULE_TIMEZONE = process.env.FIXED_SCHEDULE_TIMEZONE || "Asia/Taipei"
+const JWT_SECRET = process.env.JWT_SECRET || "change-this-in-production"
+const JWT_EXPIRES_IN_SECONDS = Number(process.env.JWT_EXPIRES_IN_SECONDS || 60 * 60 * 12)
+const DEFAULT_INITIAL_PASSWORD = process.env.DEFAULT_INITIAL_PASSWORD || "ChangeMe123!"
+const AUTH_ROLES = ["employee", "team_leader", "manager"]
+
+function base64UrlEncode(value) {
+    return Buffer.from(value)
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/g, "")
+}
+
+function base64UrlDecode(value) {
+    const normalized = String(value).replace(/-/g, "+").replace(/_/g, "/")
+    const padding = normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4))
+    return Buffer.from(`${normalized}${padding}`, "base64").toString("utf8")
+}
+
+function signJwt(payload, expiresInSeconds = JWT_EXPIRES_IN_SECONDS) {
+    const header = { alg: "HS256", typ: "JWT" }
+    const iat = Math.floor(Date.now() / 1000)
+    const exp = iat + expiresInSeconds
+    const body = { ...payload, iat, exp }
+
+    const encodedHeader = base64UrlEncode(JSON.stringify(header))
+    const encodedPayload = base64UrlEncode(JSON.stringify(body))
+    const signingInput = `${encodedHeader}.${encodedPayload}`
+    const signature = crypto
+        .createHmac("sha256", JWT_SECRET)
+        .update(signingInput)
+        .digest("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/g, "")
+
+    return `${signingInput}.${signature}`
+}
+
+function verifyJwt(token) {
+    const [headerPart, payloadPart, signaturePart] = String(token || "").split(".")
+    if (!headerPart || !payloadPart || !signaturePart) {
+        throw new Error("Invalid token format")
+    }
+
+    const signingInput = `${headerPart}.${payloadPart}`
+    const expectedSignature = crypto
+        .createHmac("sha256", JWT_SECRET)
+        .update(signingInput)
+        .digest("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/g, "")
+
+    const expectedBuffer = Buffer.from(expectedSignature)
+    const providedBuffer = Buffer.from(signaturePart)
+
+    if (expectedBuffer.length !== providedBuffer.length) {
+        throw new Error("Invalid token signature")
+    }
+
+    if (!crypto.timingSafeEqual(expectedBuffer, providedBuffer)) {
+        throw new Error("Invalid token signature")
+    }
+
+    const payload = JSON.parse(base64UrlDecode(payloadPart))
+    const now = Math.floor(Date.now() / 1000)
+
+    if (!payload.exp || payload.exp < now) {
+        throw new Error("Token expired")
+    }
+
+    return payload
+}
+
+function hashPassword(password) {
+    const salt = crypto.randomBytes(16).toString("hex")
+    const hash = crypto.scryptSync(password, salt, 64).toString("hex")
+    return `scrypt:${salt}:${hash}`
+}
+
+function verifyPassword(password, passwordHash) {
+    if (!passwordHash || typeof passwordHash !== "string") return false
+
+    const [algorithm, salt, hashValue] = passwordHash.split(":")
+    if (algorithm !== "scrypt" || !salt || !hashValue) return false
+
+    const derivedKey = crypto.scryptSync(password, salt, 64)
+    const storedKey = Buffer.from(hashValue, "hex")
+    if (storedKey.length !== derivedKey.length) return false
+
+    return crypto.timingSafeEqual(storedKey, derivedKey)
+}
+
+function normalizeRole(role) {
+    const normalized = String(role || "").trim().toLowerCase()
+    if (AUTH_ROLES.includes(normalized)) return normalized
+    return "employee"
+}
+
+function isAdminRole(role) {
+    return role === "team_leader" || role === "manager"
+}
+
+function buildAuthUser(row) {
+    return {
+        id: Number(row.id),
+        role: normalizeRole(row.role),
+        must_change_password: Boolean(row.must_change_password),
+        english_name: row.english_name || null,
+        chinese_name: row.chinese_name || null,
+        preferred_language: row.preferred_language || "en",
+        email: row.email || null,
+        phone: row.phone || null,
+    }
+}
+
+function getBearerToken(req) {
+    const authHeader = String(req.headers.authorization || "")
+    if (!authHeader.toLowerCase().startsWith("bearer ")) return null
+    return authHeader.slice(7).trim()
+}
+
+function requireAuth(req, res, next) {
+    const token = getBearerToken(req)
+    if (!token) {
+        return res.status(401).json({ error: "Authentication required" })
+    }
+
+    try {
+        const payload = verifyJwt(token)
+        req.authUser = {
+            id: Number(payload.sub),
+            role: normalizeRole(payload.role),
+        }
+        next()
+    } catch (error) {
+        return res.status(401).json({ error: "Invalid or expired token" })
+    }
+}
+
+function requireRoles(roles) {
+    return (req, res, next) => {
+        if (!req.authUser) {
+            return res.status(401).json({ error: "Authentication required" })
+        }
+
+        if (!roles.includes(req.authUser.role)) {
+            return res.status(403).json({ error: "Insufficient permissions" })
+        }
+
+        next()
+    }
+}
+
+function canAccessEmployeeRecord(req, employeeId) {
+    return isAdminRole(req.authUser.role) || Number(req.authUser.id) === Number(employeeId)
+}
 
 function extractTimeValue(value) {
     if (!value) return null
@@ -231,7 +390,195 @@ app.get("/", (req,res)=>{
     })
 })
 
-app.get("/employees", async (req, res) => {
+app.post("/auth/login", async (req, res) => {
+    const username = String(req.body?.username || "").trim()
+    const password = String(req.body?.password || "")
+
+    if (!username || !password) {
+        return res.status(400).json({ error: "username and password are required" })
+    }
+
+    try {
+        const result = await pool.query(
+            `
+            SELECT
+                id,
+                email,
+                phone,
+                role,
+                password_hash,
+                must_change_password,
+                english_name,
+                chinese_name,
+                preferred_language
+            FROM employees
+            WHERE LOWER(email) = LOWER($1)
+               OR phone = $1
+            LIMIT 1
+            `,
+            [username]
+        )
+
+        if (result.rowCount === 0) {
+            return res.status(401).json({ error: "Invalid username or password" })
+        }
+
+        const employee = result.rows[0]
+        const role = normalizeRole(employee.role)
+        const hasPasswordHash = Boolean(employee.password_hash)
+        const isPasswordValid = hasPasswordHash
+            ? verifyPassword(password, employee.password_hash)
+            : password === DEFAULT_INITIAL_PASSWORD
+
+        if (!isPasswordValid) {
+            return res.status(401).json({ error: "Invalid username or password" })
+        }
+
+        if (!hasPasswordHash) {
+            await pool.query(
+                `
+                UPDATE employees
+                SET password_hash = $1, must_change_password = TRUE, updated_at = NOW()
+                WHERE id = $2
+                `,
+                [hashPassword(DEFAULT_INITIAL_PASSWORD), employee.id]
+            )
+            employee.must_change_password = true
+        }
+
+        if (role !== employee.role) {
+            await pool.query(
+                `
+                UPDATE employees
+                SET role = $1, updated_at = NOW()
+                WHERE id = $2
+                `,
+                [role, employee.id]
+            )
+            employee.role = role
+        }
+
+        const authUser = buildAuthUser(employee)
+        const token = signJwt({ sub: authUser.id, role: authUser.role })
+
+        res.json({ token, user: authUser })
+    } catch (error) {
+        console.error("Failed to login:", error)
+        res.status(500).json({ error: "Failed to login" })
+    }
+})
+
+app.get("/auth/me", requireAuth, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `
+            SELECT
+                id,
+                role,
+                must_change_password,
+                english_name,
+                chinese_name,
+                preferred_language,
+                email,
+                phone
+            FROM employees
+            WHERE id = $1
+            LIMIT 1
+            `,
+            [req.authUser.id]
+        )
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: "User not found" })
+        }
+
+        res.json({ user: buildAuthUser(result.rows[0]) })
+    } catch (error) {
+        console.error("Failed to fetch auth user:", error)
+        res.status(500).json({ error: "Failed to fetch auth user" })
+    }
+})
+
+app.post("/auth/change-password", requireAuth, async (req, res) => {
+    const currentPassword = String(req.body?.current_password || "")
+    const newPassword = String(req.body?.new_password || "")
+
+    if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: "current_password and new_password are required" })
+    }
+
+    if (newPassword.length < 8) {
+        return res.status(400).json({ error: "new_password must be at least 8 characters" })
+    }
+
+    try {
+        const result = await pool.query(
+            `
+            SELECT
+                id,
+                role,
+                password_hash,
+                must_change_password,
+                english_name,
+                chinese_name,
+                preferred_language,
+                email,
+                phone
+            FROM employees
+            WHERE id = $1
+            LIMIT 1
+            `,
+            [req.authUser.id]
+        )
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: "User not found" })
+        }
+
+        const employee = result.rows[0]
+        const hasPasswordHash = Boolean(employee.password_hash)
+        const isCurrentPasswordValid = hasPasswordHash
+            ? verifyPassword(currentPassword, employee.password_hash)
+            : currentPassword === DEFAULT_INITIAL_PASSWORD
+
+        if (!isCurrentPasswordValid) {
+            return res.status(401).json({ error: "Current password is incorrect" })
+        }
+
+        const nextPasswordHash = hashPassword(newPassword)
+        const updateResult = await pool.query(
+            `
+            UPDATE employees
+            SET password_hash = $1, must_change_password = FALSE, updated_at = NOW()
+            WHERE id = $2
+            RETURNING
+                id,
+                role,
+                must_change_password,
+                english_name,
+                chinese_name,
+                preferred_language,
+                email,
+                phone
+            `,
+            [nextPasswordHash, req.authUser.id]
+        )
+
+        const authUser = buildAuthUser(updateResult.rows[0])
+        const token = signJwt({ sub: authUser.id, role: authUser.role })
+
+        res.json({
+            message: "Password updated successfully",
+            token,
+            user: authUser,
+        })
+    } catch (error) {
+        console.error("Failed to change password:", error)
+        res.status(500).json({ error: "Failed to change password" })
+    }
+})
+
+app.get("/employees", requireAuth, requireRoles(["team_leader", "manager"]), async (req, res) => {
     try {
         const result = await pool.query("SELECT * FROM employees ORDER BY id ASC")
         res.json(result.rows)
@@ -241,7 +588,7 @@ app.get("/employees", async (req, res) => {
     }
 })
 
-app.get("/stats/dashboard", async (req, res) => {
+app.get("/stats/dashboard", requireAuth, requireRoles(["team_leader", "manager"]), async (req, res) => {
     const dashboardTimezone = process.env.DASHBOARD_TIMEZONE || FIXED_SCHEDULE_TIMEZONE || "Asia/Taipei"
 
     try {
@@ -285,7 +632,7 @@ app.get("/stats/dashboard", async (req, res) => {
     }
 })
 
-app.get("/stats/today-shifts", async (req, res) => {
+app.get("/stats/today-shifts", requireAuth, requireRoles(["team_leader", "manager"]), async (req, res) => {
     const dashboardTimezone = process.env.DASHBOARD_TIMEZONE || FIXED_SCHEDULE_TIMEZONE || "Asia/Taipei"
 
     try {
@@ -319,11 +666,15 @@ app.get("/stats/today-shifts", async (req, res) => {
     }
 })
 
-app.get("/employees/:id", async (req, res) => {
+app.get("/employees/:id", requireAuth, async (req, res) => {
     const employeeId = Number(req.params.id)
 
     if (!employeeId || Number.isNaN(employeeId)) {
         return res.status(400).json({ error: "Valid employee id is required" })
+    }
+
+    if (!canAccessEmployeeRecord(req, employeeId)) {
+        return res.status(403).json({ error: "Insufficient permissions" })
     }
 
     try {
@@ -340,12 +691,16 @@ app.get("/employees/:id", async (req, res) => {
     }
 })
 
-app.get("/employees/:id/tomorrow-shifts", async (req, res) => {
+app.get("/employees/:id/tomorrow-shifts", requireAuth, async (req, res) => {
     const employeeId = Number(req.params.id)
     const dashboardTimezone = process.env.DASHBOARD_TIMEZONE || FIXED_SCHEDULE_TIMEZONE || "Asia/Taipei"
 
     if (!employeeId || Number.isNaN(employeeId)) {
         return res.status(400).json({ error: "Valid employee id is required" })
+    }
+
+    if (!canAccessEmployeeRecord(req, employeeId)) {
+        return res.status(403).json({ error: "Insufficient permissions" })
     }
 
     try {
@@ -385,12 +740,54 @@ app.get("/employees/:id/tomorrow-shifts", async (req, res) => {
     }
 })
 
-app.patch("/employees/:id/language", async (req, res) => {
+app.get("/employees/:id/coworkers", requireAuth, async (req, res) => {
+    const employeeId = Number(req.params.id)
+
+    if (!employeeId || Number.isNaN(employeeId)) {
+        return res.status(400).json({ error: "Valid employee id is required" })
+    }
+
+    if (!canAccessEmployeeRecord(req, employeeId)) {
+        return res.status(403).json({ error: "Insufficient permissions" })
+    }
+
+    try {
+        const result = await pool.query(
+            `
+            SELECT
+                id,
+                first_name,
+                last_name,
+                english_name,
+                chinese_name,
+                role_title,
+                employment_type,
+                status
+            FROM employees
+            WHERE id <> $1
+              AND status = 'active'
+            ORDER BY COALESCE(english_name, last_name) ASC, first_name ASC
+            `,
+            [employeeId]
+        )
+
+        res.json(result.rows)
+    } catch (error) {
+        console.error("Failed to fetch coworkers:", error)
+        res.status(500).json({ error: "Failed to fetch coworkers" })
+    }
+})
+
+app.patch("/employees/:id/language", requireAuth, async (req, res) => {
     const employeeId = Number(req.params.id)
     const preferredLanguage = normalizePreferredLanguage(req.body?.preferred_language)
 
     if (!employeeId || Number.isNaN(employeeId)) {
         return res.status(400).json({ error: "Valid employee id is required" })
+    }
+
+    if (!canAccessEmployeeRecord(req, employeeId)) {
+        return res.status(403).json({ error: "Insufficient permissions" })
     }
 
     if (!preferredLanguage) {
@@ -506,14 +903,14 @@ async function upsertFixedSchedule(req, res) {
     }
 }
 
-app.get("/fixed-schedules", getFixedSchedules)
-app.post("/fixed-schedules", upsertFixedSchedule)
+app.get("/fixed-schedules", requireAuth, requireRoles(["team_leader", "manager"]), getFixedSchedules)
+app.post("/fixed-schedules", requireAuth, requireRoles(["team_leader", "manager"]), upsertFixedSchedule)
 
 // Backward-compatible aliases.
-app.get("/fixed-schedule", getFixedSchedules)
-app.post("/fixed-schedule", upsertFixedSchedule)
+app.get("/fixed-schedule", requireAuth, requireRoles(["team_leader", "manager"]), getFixedSchedules)
+app.post("/fixed-schedule", requireAuth, requireRoles(["team_leader", "manager"]), upsertFixedSchedule)
 
-app.get("/schedule", async (req, res) => {
+app.get("/schedule", requireAuth, requireRoles(["team_leader", "manager"]), async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT
@@ -545,7 +942,7 @@ app.get("/schedule", async (req, res) => {
     }
 })
 
-app.get("/schedule/today", async (req, res) => {
+app.get("/schedule/today", requireAuth, requireRoles(["team_leader", "manager"]), async (req, res) => {
     const scheduleTimezone = process.env.DASHBOARD_TIMEZONE || FIXED_SCHEDULE_TIMEZONE || "Asia/Taipei"
 
     try {
@@ -592,7 +989,7 @@ app.get("/schedule/today", async (req, res) => {
     }
 })
 
-app.post("/schedule", async (req, res) => {
+app.post("/schedule", requireAuth, requireRoles(["team_leader", "manager"]), async (req, res) => {
     const { employee_id, shift_id, schedule_date, status, notes } = req.body
 
     if (!employee_id || !shift_id || !schedule_date) {
@@ -627,7 +1024,7 @@ app.post("/schedule", async (req, res) => {
     }
 })
 
-app.patch("/schedule/:id", async (req, res) => {
+app.patch("/schedule/:id", requireAuth, requireRoles(["team_leader", "manager"]), async (req, res) => {
     const scheduleId = Number(req.params.id)
     const {
         start_time,
@@ -761,8 +1158,16 @@ app.patch("/schedule/:id", async (req, res) => {
     }
 })
 
-app.get("/requests", async (req, res) => {
+app.get("/requests", requireAuth, async (req, res) => {
     try {
+        const isAdmin = isAdminRole(req.authUser.role)
+        const queryParams = []
+        const whereClause = isAdmin ? "" : "WHERE r.employee_id = $1"
+
+        if (!isAdmin) {
+            queryParams.push(req.authUser.id)
+        }
+
         const result = await pool.query(`
             SELECT
                 r.id,
@@ -804,8 +1209,9 @@ app.get("/requests", async (req, res) => {
             LEFT JOIN employees rv ON rv.id = r.reviewer_id
             LEFT JOIN schedules s ON s.id = r.schedule_id
             LEFT JOIN shifts sh ON sh.id = s.shift_id
+            ${whereClause}
             ORDER BY r.created_at DESC, r.id DESC
-        `)
+        `, queryParams)
 
         res.json(result.rows)
     } catch (error) {
@@ -814,7 +1220,7 @@ app.get("/requests", async (req, res) => {
     }
 })
 
-app.post("/requests", async (req, res) => {
+app.post("/requests", requireAuth, async (req, res) => {
     const {
         employee_id,
         request_type,
@@ -831,6 +1237,15 @@ app.post("/requests", async (req, res) => {
         return res.status(400).json({
             error: "employee_id and request_type are required",
         })
+    }
+
+    const employeeId = Number(employee_id)
+    if (!employeeId || Number.isNaN(employeeId)) {
+        return res.status(400).json({ error: "Valid employee_id is required" })
+    }
+
+    if (!isAdminRole(req.authUser.role) && employeeId !== Number(req.authUser.id)) {
+        return res.status(403).json({ error: "Employees can only create requests for themselves" })
     }
 
     try {
@@ -859,7 +1274,7 @@ app.post("/requests", async (req, res) => {
             RETURNING *
             `,
             [
-                employee_id,
+                employeeId,
                 dbRequestType,
                 status ?? null,
                 schedule_id ?? null,
@@ -886,7 +1301,7 @@ app.post("/requests", async (req, res) => {
     }
 })
 
-app.post("/requests/absence-replacement", async (req, res) => {
+app.post("/requests/absence-replacement", requireAuth, async (req, res) => {
     const {
         employee_id,
         schedule_id,
@@ -901,6 +1316,10 @@ app.post("/requests/absence-replacement", async (req, res) => {
 
     if (!employeeId || Number.isNaN(employeeId)) {
         return res.status(400).json({ error: "Valid employee_id is required" })
+    }
+
+    if (!isAdminRole(req.authUser.role) && employeeId !== Number(req.authUser.id)) {
+        return res.status(403).json({ error: "Employees can only submit replacement requests for themselves" })
     }
 
     if (!scheduleId || Number.isNaN(scheduleId)) {
@@ -1130,11 +1549,15 @@ async function patchRequestStatus(req, res) {
         const updatedRequest = await client.query(
             `
             UPDATE requests
-            SET status = $1, reviewed_at = NOW(), updated_at = NOW()
-            WHERE id = $2
+            SET
+                status = $1,
+                reviewer_id = $2,
+                reviewed_at = NOW(),
+                updated_at = NOW()
+            WHERE id = $3
             RETURNING *
             `,
-            [status, requestId]
+            [status, req.authUser.id, requestId]
         )
 
         await client.query("COMMIT")
@@ -1148,10 +1571,10 @@ async function patchRequestStatus(req, res) {
     }
 }
 
-app.patch("/requests/:id", patchRequestStatus)
-app.patch("/requests/:id/status", patchRequestStatus)
+app.patch("/requests/:id", requireAuth, requireRoles(["team_leader", "manager"]), patchRequestStatus)
+app.patch("/requests/:id/status", requireAuth, requireRoles(["team_leader", "manager"]), patchRequestStatus)
 
-app.post("/admin/generate-schedule", async (req, res) => {
+app.post("/admin/generate-schedule", requireAuth, requireRoles(["team_leader", "manager"]), async (req, res) => {
     try {
         const result = await generateNextWeekFromFixedSchedules()
         res.json({

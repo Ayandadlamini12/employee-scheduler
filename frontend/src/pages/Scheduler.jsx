@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { API_BASE_URL } from "../config/api"
+import { apiFetch } from "../config/api"
 
 const shiftTypeStyles = {
   opening: "bg-emerald-600 text-white ring-1 ring-emerald-700",
@@ -139,8 +139,8 @@ export default function Scheduler() {
         setError("")
 
         const [scheduleResponse, requestsResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/schedule`, { signal: controller.signal }),
-          fetch(`${API_BASE_URL}/requests`, { signal: controller.signal }),
+          apiFetch("/schedule", { signal: controller.signal }),
+          apiFetch("/requests", { signal: controller.signal }),
         ])
 
         if (!scheduleResponse.ok) {
@@ -318,9 +318,8 @@ export default function Scheduler() {
       const requestedStart = `${selectedShift.scheduleDate}T${newStartTime}:00`
       const requestedEnd = `${selectedShift.scheduleDate}T${newEndTime}:00`
 
-      const response = await fetch(`${API_BASE_URL}/requests`, {
+      const response = await apiFetch("/requests", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           employee_id: selectedShift.employeeId,
           schedule_id: selectedShift.scheduleId,
