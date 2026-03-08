@@ -167,7 +167,10 @@ function startFixedScheduleCronJob() {
 }
 
 app.get("/", (req,res)=>{
-    res.send("Employee Scheduler API Running")
+    res.json({
+        status: "ok",
+        service: "employee-scheduler-api",
+    })
 })
 
 app.get("/employees", async (req, res) => {
@@ -177,6 +180,35 @@ app.get("/employees", async (req, res) => {
     } catch (error) {
         console.error("Failed to fetch employees:", error)
         res.status(500).json({ error: "Failed to fetch employees" })
+    }
+})
+
+app.get("/stats/dashboard", async (req, res) => {
+    const dashboardTimezone = process.env.DASHBOARD_TIMEZONE || FIXED_SCHEDULE_TIMEZONE || "Asia/Taipei"
+
+    try {
+        const result = await pool.query(
+            `
+            SELECT
+                (SELECT COUNT(*)::INT FROM employees) AS total_employees,
+                (
+                    SELECT COUNT(*)::INT
+                    FROM schedules
+                    WHERE schedule_date = (NOW() AT TIME ZONE $1)::date
+                ) AS shifts_today,
+                (
+                    SELECT COUNT(*)::INT
+                    FROM requests
+                    WHERE status = 'pending'
+                ) AS pending_requests
+            `,
+            [dashboardTimezone]
+        )
+
+        res.json(result.rows[0])
+    } catch (error) {
+        console.error("Failed to fetch dashboard stats:", error)
+        res.status(500).json({ error: "Failed to fetch dashboard stats" })
     }
 })
 
@@ -521,7 +553,7 @@ app.post("/requests", async (req, res) => {
     }
 })
 
-app.patch("/requests/:id", async (req, res) => {
+async function patchRequestStatus(req, res) {
     const requestId = Number(req.params.id)
     const { status } = req.body
 
@@ -651,7 +683,10 @@ app.patch("/requests/:id", async (req, res) => {
     } finally {
         client.release()
     }
-})
+}
+
+app.patch("/requests/:id", patchRequestStatus)
+app.patch("/requests/:id/status", patchRequestStatus)
 
 app.post("/admin/generate-schedule", async (req, res) => {
     try {

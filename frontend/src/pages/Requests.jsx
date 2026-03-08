@@ -92,11 +92,19 @@ export default function Requests() {
       setUpdatingRequestId(id)
       setError("")
 
-      const response = await fetch(`${API_BASE_URL}/requests/${id}`, {
+      let response = await fetch(`${API_BASE_URL}/requests/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       })
+
+      if (response.status === 404) {
+        response = await fetch(`${API_BASE_URL}/requests/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        })
+      }
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
