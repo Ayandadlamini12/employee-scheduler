@@ -1,10 +1,32 @@
-﻿{
+{
   "appTitle": "綺麗美地",
   "selectLanguageTitle": "選擇語言",
   "selectLanguageBody": "請選擇偏好語言以繼續。",
   "languageEnglish": "English",
   "languageChineseTraditional": "繁體中文",
   "dashboard": "儀表板",
+  "today": {
+    "nav": "今日",
+    "title": "今日班表",
+    "subtitle": "當日營運排班管理",
+    "employee": "員工",
+    "role": "職位",
+    "shift": "班次",
+    "status": "狀態",
+    "action": "操作",
+    "adjust": "調整",
+    "loading": "今日班表載入中...",
+    "noShifts": "今天沒有已排班次。",
+    "editShift": "編輯班次",
+    "startTime": "開始時間",
+    "endTime": "結束時間",
+    "cancel": "取消",
+    "save": "儲存",
+    "saving": "儲存中...",
+    "timeRequired": "開始與結束時間皆為必填。",
+    "failedLoad": "載入今日班表失敗。",
+    "failedSave": "更新班表失敗。"
+  },
   "scheduler": "排班",
   "employees": {
     "label": "員工",

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import Dashboard from "./pages/Dashboard"
+import Today from "./pages/Today"
 import Scheduler from "./pages/Scheduler"
 import Employees from "./pages/Employees"
 import Requests from "./pages/Requests"
@@ -102,6 +103,7 @@ export default function App() {
   const navItems = useMemo(
     () => [
       { key: "dashboard", label: t("dashboard") },
+      { key: "today", label: t("today.nav") },
       { key: "scheduler", label: t("scheduler") },
       { key: "employees", label: t("employees.label") },
       { key: "requests", label: t("adminRequests") },
@@ -110,6 +112,7 @@ export default function App() {
   )
 
   const renderPage = () => {
+    if (page === "today") return <Today />
     if (page === "scheduler") return <Scheduler />
     if (page === "employees") return <Employees />
     if (page === "requests") return <Requests />

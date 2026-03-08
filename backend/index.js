@@ -60,6 +60,64 @@ function normalizePreferredLanguage(value) {
     return null
 }
 
+function isValidTimeString(value) {
+    return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(value || ""))
+}
+
+async function findOrCreateShiftForTimeRange(client, {
+    shiftName,
+    startTime,
+    endTime,
+    isOvernight,
+    breakMinutes,
+    requiredRole,
+    colorHex,
+}) {
+    const existingShift = await client.query(
+        `
+        SELECT id
+        FROM shifts
+        WHERE name = $1
+          AND start_time = $2::time
+          AND end_time = $3::time
+          AND is_overnight = $4
+        LIMIT 1
+        `,
+        [shiftName, startTime, endTime, isOvernight]
+    )
+
+    if (existingShift.rowCount > 0) {
+        return existingShift.rows[0].id
+    }
+
+    const createdShift = await client.query(
+        `
+        INSERT INTO shifts (
+            name,
+            start_time,
+            end_time,
+            is_overnight,
+            break_minutes,
+            required_role,
+            color_hex
+        )
+        VALUES ($1, $2::time, $3::time, $4, $5, $6, $7)
+        RETURNING id
+        `,
+        [
+            shiftName,
+            startTime,
+            endTime,
+            isOvernight,
+            breakMinutes || 0,
+            requiredRole || null,
+            colorHex || null,
+        ]
+    )
+
+    return createdShift.rows[0].id
+}
+
 function getMondayStart(date) {
     const dayOffset = (date.getDay() + 6) % 7
     const monday = new Date(date)
@@ -408,6 +466,53 @@ app.get("/schedule", async (req, res) => {
     }
 })
 
+app.get("/schedule/today", async (req, res) => {
+    const scheduleTimezone = process.env.DASHBOARD_TIMEZONE || FIXED_SCHEDULE_TIMEZONE || "Asia/Taipei"
+
+    try {
+        const result = await pool.query(
+            `
+            WITH local_day AS (
+                SELECT (NOW() AT TIME ZONE $1)::date AS local_date
+            )
+            SELECT
+                s.id AS schedule_id,
+                s.employee_id,
+                CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
+                e.english_name AS employee_english_name,
+                e.chinese_name AS employee_chinese_name,
+                e.role_title AS role,
+                s.status,
+                s.schedule_date,
+                sh.id AS shift_id,
+                sh.name AS shift_name,
+                sh.start_time,
+                sh.end_time,
+                (s.schedule_date::timestamp + sh.start_time) AS shift_start,
+                (
+                    s.schedule_date::timestamp
+                    + sh.end_time
+                    + CASE
+                        WHEN sh.is_overnight OR sh.end_time <= sh.start_time THEN INTERVAL '1 day'
+                        ELSE INTERVAL '0 day'
+                    END
+                ) AS shift_end
+            FROM schedules s
+            JOIN employees e ON e.id = s.employee_id
+            JOIN shifts sh ON sh.id = s.shift_id
+            JOIN local_day d ON d.local_date = s.schedule_date
+            ORDER BY sh.start_time ASC, COALESCE(e.english_name, e.last_name) ASC, e.first_name ASC
+            `,
+            [scheduleTimezone]
+        )
+
+        res.json(result.rows)
+    } catch (error) {
+        console.error("Failed to fetch today's schedule:", error)
+        res.status(500).json({ error: "Failed to fetch today's schedule" })
+    }
+})
+
 app.post("/schedule", async (req, res) => {
     const { employee_id, shift_id, schedule_date, status, notes } = req.body
 
@@ -440,6 +545,140 @@ app.post("/schedule", async (req, res) => {
         }
 
         res.status(500).json({ error: "Failed to create schedule" })
+    }
+})
+
+app.patch("/schedule/:id", async (req, res) => {
+    const scheduleId = Number(req.params.id)
+    const {
+        start_time,
+        end_time,
+        status,
+        notes,
+        shift_name,
+    } = req.body || {}
+
+    if (!scheduleId || Number.isNaN(scheduleId)) {
+        return res.status(400).json({ error: "Valid schedule id is required" })
+    }
+
+    const hasStartTime = start_time !== undefined && start_time !== null
+    const hasEndTime = end_time !== undefined && end_time !== null
+    const hasTimeUpdate = hasStartTime || hasEndTime
+
+    if (hasStartTime !== hasEndTime) {
+        return res.status(400).json({ error: "Both start_time and end_time are required when updating shift time" })
+    }
+
+    if (hasTimeUpdate && (!isValidTimeString(start_time) || !isValidTimeString(end_time))) {
+        return res.status(400).json({ error: "start_time and end_time must be in HH:MM format" })
+    }
+
+    if (!hasTimeUpdate && status === undefined && notes === undefined) {
+        return res.status(400).json({ error: "Provide start_time/end_time and/or status/notes to update schedule" })
+    }
+
+    const client = await pool.connect()
+
+    try {
+        await client.query("BEGIN")
+
+        const existingSchedule = await client.query(
+            `
+            SELECT
+                s.id,
+                s.shift_id,
+                sh.name AS shift_name,
+                sh.is_overnight,
+                sh.break_minutes,
+                sh.required_role,
+                sh.color_hex
+            FROM schedules s
+            JOIN shifts sh ON sh.id = s.shift_id
+            WHERE s.id = $1
+            FOR UPDATE
+            `,
+            [scheduleId]
+        )
+
+        if (existingSchedule.rowCount === 0) {
+            await client.query("ROLLBACK")
+            return res.status(404).json({ error: "Schedule not found" })
+        }
+
+        const currentSchedule = existingSchedule.rows[0]
+        let nextShiftId = currentSchedule.shift_id
+
+        if (hasTimeUpdate) {
+            const normalizedStart = String(start_time).slice(0, 5)
+            const normalizedEnd = String(end_time).slice(0, 5)
+            const nextIsOvernight = normalizedEnd <= normalizedStart
+            const nextShiftName = String(shift_name || currentSchedule.shift_name || "Adjusted Shift").slice(0, 100)
+
+            nextShiftId = await findOrCreateShiftForTimeRange(client, {
+                shiftName: nextShiftName,
+                startTime: normalizedStart,
+                endTime: normalizedEnd,
+                isOvernight: nextIsOvernight,
+                breakMinutes: currentSchedule.break_minutes,
+                requiredRole: currentSchedule.required_role,
+                colorHex: currentSchedule.color_hex,
+            })
+        }
+
+        await client.query(
+            `
+            UPDATE schedules
+            SET
+                shift_id = $1,
+                status = COALESCE($2, status),
+                notes = COALESCE($3, notes),
+                updated_at = NOW()
+            WHERE id = $4
+            `,
+            [nextShiftId, status ?? null, notes ?? null, scheduleId]
+        )
+
+        const updatedSchedule = await client.query(
+            `
+            SELECT
+                s.id AS schedule_id,
+                s.employee_id,
+                CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
+                e.english_name AS employee_english_name,
+                e.chinese_name AS employee_chinese_name,
+                e.role_title AS role,
+                s.status,
+                s.schedule_date,
+                sh.id AS shift_id,
+                sh.name AS shift_name,
+                sh.start_time,
+                sh.end_time,
+                (s.schedule_date::timestamp + sh.start_time) AS shift_start,
+                (
+                    s.schedule_date::timestamp
+                    + sh.end_time
+                    + CASE
+                        WHEN sh.is_overnight OR sh.end_time <= sh.start_time THEN INTERVAL '1 day'
+                        ELSE INTERVAL '0 day'
+                    END
+                ) AS shift_end
+            FROM schedules s
+            JOIN employees e ON e.id = s.employee_id
+            JOIN shifts sh ON sh.id = s.shift_id
+            WHERE s.id = $1
+            `,
+            [scheduleId]
+        )
+
+        await client.query("COMMIT")
+        res.json(updatedSchedule.rows[0])
+    } catch (error) {
+        await client.query("ROLLBACK")
+        console.error("Failed to update schedule:", error)
+        res.status(500).json({ error: "Failed to update schedule" })
+    } finally {
+        client.release()
     }
 })
 
