@@ -6,7 +6,14 @@
   "languageChineseTraditional": "Traditional Chinese",
   "dashboard": "Dashboard",
   "scheduler": "Scheduler",
-  "employees": "Employees",
+  "employees": {
+    "label": "Employees",
+    "employee": "Employee",
+    "role": "Role",
+    "employmentType": "Employment Type",
+    "language": "Language",
+    "status": "Status"
+  },
   "adminRequests": "Admin Requests",
   "employeeSchedulingSystem": "Employee Scheduling System",
   "employeesLabel": "Employees",

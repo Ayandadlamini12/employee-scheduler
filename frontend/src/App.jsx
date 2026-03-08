@@ -103,7 +103,7 @@ export default function App() {
     () => [
       { key: "dashboard", label: t("dashboard") },
       { key: "scheduler", label: t("scheduler") },
-      { key: "employees", label: t("employees") },
+      { key: "employees", label: t("employees.label") },
       { key: "requests", label: t("adminRequests") },
     ],
     [t]

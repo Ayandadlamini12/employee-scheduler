@@ -6,7 +6,14 @@
   "languageChineseTraditional": "繁體中文",
   "dashboard": "儀表板",
   "scheduler": "排班",
-  "employees": "員工",
+  "employees": {
+    "label": "員工",
+    "employee": "員工",
+    "role": "職位",
+    "employmentType": "雇用類型",
+    "language": "語言",
+    "status": "狀態"
+  },
   "adminRequests": "管理請求",
   "employeeSchedulingSystem": "員工排班系統",
   "employeesLabel": "員工",

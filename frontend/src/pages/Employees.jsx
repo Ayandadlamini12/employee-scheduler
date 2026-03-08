@@ -73,7 +73,7 @@ export default function Employees() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">{t("employees")}</h1>
+        <h1 className="text-3xl font-bold text-slate-900">{t("employees.label")}</h1>
       </div>
 
       {error ? (
@@ -87,11 +87,11 @@ export default function Employees() {
           <table className="min-w-[980px] w-full text-sm">
             <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-4 py-3">{t("employee")}</th>
-                <th className="px-4 py-3">Role</th>
-                <th className="px-4 py-3">Employment Type</th>
-                <th className="px-4 py-3">Language</th>
-                <th className="px-4 py-3">{t("status")}</th>
+                <th className="px-4 py-3">{t("employees.employee")}</th>
+                <th className="px-4 py-3">{t("employees.role")}</th>
+                <th className="px-4 py-3">{t("employees.employmentType")}</th>
+                <th className="px-4 py-3">{t("employees.language")}</th>
+                <th className="px-4 py-3">{t("employees.status")}</th>
               </tr>
             </thead>
             <tbody>
