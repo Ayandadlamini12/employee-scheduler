@@ -8,6 +8,8 @@ import Employees from "./pages/Employees"
 import Requests from "./pages/Requests"
 import Login from "./pages/Login"
 import ChangePassword from "./pages/ChangePassword"
+import Announcements from "./pages/Announcements"
+import Profile from "./pages/Profile"
 import {
   apiFetch,
   clearAuthSession,
@@ -61,6 +63,23 @@ function NavIcon({ icon }) {
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
         <circle cx="9" cy="7" r="4" />
         <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    )
+  }
+
+  if (icon === "announcements") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={commonClass}>
+        <path d="M22 8.5L2 12l7 2.5L11.5 22l2.5-7.5L22 8.5z" />
+      </svg>
+    )
+  }
+
+  if (icon === "profile") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={commonClass}>
+        <circle cx="12" cy="7" r="4" />
+        <path d="M5.5 21a6.5 6.5 0 0 1 13 0" />
       </svg>
     )
   }
@@ -173,13 +192,12 @@ export default function App() {
 
     if (authUser.must_change_password) return
 
-    if (isAdmin && page === "employeeDashboard") {
-      setPage("dashboard")
-      return
-    }
+    const allowedPages = isAdmin
+      ? new Set(["dashboard", "today", "scheduler", "employees", "requests", "announcements", "profile"])
+      : new Set(["employeeDashboard", "announcements", "profile"])
 
-    if (!isAdmin && page !== "employeeDashboard") {
-      setPage("employeeDashboard")
+    if (!allowedPages.has(page)) {
+      setPage(isAdmin ? "dashboard" : "employeeDashboard")
     }
   }, [authUser, isAdmin, isAuthenticated, page])
 
@@ -223,6 +241,18 @@ export default function App() {
     setAuthSession(nextSession)
   }
 
+  function handleProfileUpdated(nextUser) {
+    if (!nextUser || !authSession?.token) return
+
+    setAuthSession({
+      token: authSession.token,
+      user: {
+        ...authUser,
+        ...nextUser,
+      },
+    })
+  }
+
   function handleLogout() {
     setAuthSession(null)
     setPage("dashboard")
@@ -232,6 +262,8 @@ export default function App() {
     if (!isAdmin) {
       return [
         { key: "employeeDashboard", label: t("employeeDashboard.nav"), icon: "employeeDashboard" },
+        { key: "announcements", label: t("announcements.nav"), icon: "announcements" },
+        { key: "profile", label: t("profile.nav"), icon: "profile" },
       ]
     }
 
@@ -241,10 +273,20 @@ export default function App() {
       { key: "scheduler", label: t("scheduler"), icon: "scheduler" },
       { key: "employees", label: t("employees.label"), icon: "employees" },
       { key: "requests", label: t("adminRequests"), icon: "requests" },
+      { key: "announcements", label: t("announcements.nav"), icon: "announcements" },
+      { key: "profile", label: t("profile.nav"), icon: "profile" },
     ]
   }, [isAdmin, t])
 
   const renderPage = () => {
+    if (page === "profile") {
+      return <Profile user={authUser} onProfileUpdated={handleProfileUpdated} onPasswordChanged={handlePasswordChanged} />
+    }
+
+    if (page === "announcements") {
+      return <Announcements isAdmin={isAdmin} />
+    }
+
     if (!isAdmin) {
       return <EmployeeDashboard employeeId={String(authUser?.id || "")} />
     }

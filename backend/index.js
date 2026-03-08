@@ -30,6 +30,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "change-this-in-production"
 const JWT_EXPIRES_IN_SECONDS = Number(process.env.JWT_EXPIRES_IN_SECONDS || 60 * 60 * 12)
 const DEFAULT_INITIAL_PASSWORD = process.env.DEFAULT_INITIAL_PASSWORD || "ChangeMe123!"
 const AUTH_ROLES = ["employee", "team_leader", "manager"]
+const ANNOUNCEMENT_PRIORITIES = ["low", "normal", "high", "urgent"]
 
 function base64UrlEncode(value) {
     return Buffer.from(value)
@@ -221,6 +222,14 @@ function normalizePreferredLanguage(value) {
 
 function isValidTimeString(value) {
     return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(value || ""))
+}
+
+function normalizeAnnouncementPriority(value) {
+    const priority = String(value || "").trim().toLowerCase()
+    if (ANNOUNCEMENT_PRIORITIES.includes(priority)) {
+        return priority
+    }
+    return null
 }
 
 async function findOrCreateShiftForTimeRange(client, {
@@ -499,7 +508,7 @@ app.get("/auth/me", requireAuth, async (req, res) => {
     }
 })
 
-app.post("/auth/change-password", requireAuth, async (req, res) => {
+async function handleChangePassword(req, res) {
     const currentPassword = String(req.body?.current_password || "")
     const newPassword = String(req.body?.new_password || "")
 
@@ -575,6 +584,425 @@ app.post("/auth/change-password", requireAuth, async (req, res) => {
     } catch (error) {
         console.error("Failed to change password:", error)
         res.status(500).json({ error: "Failed to change password" })
+    }
+}
+
+app.post("/auth/change-password", requireAuth, handleChangePassword)
+app.post("/profile/change-password", requireAuth, handleChangePassword)
+
+app.get("/profile", requireAuth, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `
+            SELECT
+                id,
+                first_name,
+                last_name,
+                english_name,
+                chinese_name,
+                email,
+                phone,
+                preferred_language,
+                role,
+                must_change_password,
+                created_at,
+                updated_at
+            FROM employees
+            WHERE id = $1
+            LIMIT 1
+            `,
+            [req.authUser.id]
+        )
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: "User not found" })
+        }
+
+        res.json(result.rows[0])
+    } catch (error) {
+        console.error("Failed to fetch profile:", error)
+        res.status(500).json({ error: "Failed to fetch profile" })
+    }
+})
+
+app.patch("/profile", requireAuth, async (req, res) => {
+    const updates = req.body || {}
+    const setClauses = []
+    const values = []
+
+    const addUpdate = (column, value) => {
+        values.push(value)
+        setClauses.push(`${column} = $${values.length}`)
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, "first_name")) {
+        const firstName = String(updates.first_name || "").trim()
+        if (!firstName) {
+            return res.status(400).json({ error: "first_name cannot be empty" })
+        }
+        addUpdate("first_name", firstName)
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, "last_name")) {
+        const lastName = String(updates.last_name || "").trim()
+        if (!lastName) {
+            return res.status(400).json({ error: "last_name cannot be empty" })
+        }
+        addUpdate("last_name", lastName)
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, "english_name")) {
+        const englishName = String(updates.english_name || "").trim()
+        addUpdate("english_name", englishName || null)
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, "chinese_name")) {
+        const chineseName = String(updates.chinese_name || "").trim()
+        addUpdate("chinese_name", chineseName || null)
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, "email")) {
+        const email = String(updates.email || "").trim()
+        if (!email) {
+            return res.status(400).json({ error: "email cannot be empty" })
+        }
+        addUpdate("email", email)
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, "phone")) {
+        const phone = String(updates.phone || "").trim()
+        addUpdate("phone", phone || null)
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, "preferred_language")) {
+        const preferredLanguage = normalizePreferredLanguage(updates.preferred_language)
+        if (!preferredLanguage) {
+            return res.status(400).json({ error: "preferred_language must be en or zh-TW" })
+        }
+        addUpdate("preferred_language", preferredLanguage)
+    }
+
+    if (setClauses.length === 0) {
+        return res.status(400).json({ error: "No valid profile fields provided for update" })
+    }
+
+    values.push(req.authUser.id)
+    const whereIndex = values.length
+
+    try {
+        const result = await pool.query(
+            `
+            UPDATE employees
+            SET
+                ${setClauses.join(", ")},
+                updated_at = NOW()
+            WHERE id = $${whereIndex}
+            RETURNING
+                id,
+                first_name,
+                last_name,
+                english_name,
+                chinese_name,
+                email,
+                phone,
+                preferred_language,
+                role,
+                must_change_password,
+                created_at,
+                updated_at
+            `,
+            values
+        )
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: "User not found" })
+        }
+
+        const profile = result.rows[0]
+        res.json({
+            profile,
+            user: buildAuthUser(profile),
+        })
+    } catch (error) {
+        if (error.code === "23505") {
+            return res.status(409).json({ error: "Email is already in use" })
+        }
+
+        console.error("Failed to update profile:", error)
+        res.status(500).json({ error: "Failed to update profile" })
+    }
+})
+
+async function fetchAnnouncementById(announcementId) {
+    const result = await pool.query(
+        `
+        SELECT
+            a.id,
+            a.title,
+            a.content,
+            a.priority,
+            a.created_by,
+            a.created_at,
+            a.updated_at,
+            CONCAT(cb.first_name, ' ', cb.last_name) AS created_by_name,
+            cb.english_name AS created_by_english_name,
+            cb.chinese_name AS created_by_chinese_name
+        FROM announcements a
+        JOIN employees cb ON cb.id = a.created_by
+        WHERE a.id = $1
+        LIMIT 1
+        `,
+        [announcementId]
+    )
+
+    return result.rows[0] || null
+}
+
+app.get("/announcements", requireAuth, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `
+            SELECT
+                a.id,
+                a.title,
+                a.content,
+                a.priority,
+                a.created_by,
+                a.created_at,
+                a.updated_at,
+                CONCAT(cb.first_name, ' ', cb.last_name) AS created_by_name,
+                cb.english_name AS created_by_english_name,
+                cb.chinese_name AS created_by_chinese_name
+            FROM announcements a
+            JOIN employees cb ON cb.id = a.created_by
+            ORDER BY
+                CASE a.priority
+                    WHEN 'urgent' THEN 1
+                    WHEN 'high' THEN 2
+                    WHEN 'normal' THEN 3
+                    ELSE 4
+                END,
+                a.created_at DESC
+            `
+        )
+
+        res.json(result.rows)
+    } catch (error) {
+        console.error("Failed to fetch announcements:", error)
+        res.status(500).json({ error: "Failed to fetch announcements" })
+    }
+})
+
+app.get("/announcements/:id", requireAuth, async (req, res) => {
+    const announcementId = Number(req.params.id)
+    if (!announcementId || Number.isNaN(announcementId)) {
+        return res.status(400).json({ error: "Valid announcement id is required" })
+    }
+
+    try {
+        const announcement = await fetchAnnouncementById(announcementId)
+        if (!announcement) {
+            return res.status(404).json({ error: "Announcement not found" })
+        }
+        res.json(announcement)
+    } catch (error) {
+        console.error("Failed to fetch announcement:", error)
+        res.status(500).json({ error: "Failed to fetch announcement" })
+    }
+})
+
+app.post("/announcements", requireAuth, requireRoles(["team_leader", "manager"]), async (req, res) => {
+    const title = String(req.body?.title || "").trim()
+    const content = String(req.body?.content || "").trim()
+    const priority = normalizeAnnouncementPriority(req.body?.priority || "normal")
+
+    if (!title || !content || !priority) {
+        return res.status(400).json({ error: "title, content, and valid priority are required" })
+    }
+
+    try {
+        const insertResult = await pool.query(
+            `
+            INSERT INTO announcements (title, content, priority, created_by)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id
+            `,
+            [title, content, priority, req.authUser.id]
+        )
+
+        const announcement = await fetchAnnouncementById(insertResult.rows[0].id)
+        res.status(201).json(announcement)
+    } catch (error) {
+        console.error("Failed to create announcement:", error)
+        res.status(500).json({ error: "Failed to create announcement" })
+    }
+})
+
+app.patch("/announcements/:id", requireAuth, requireRoles(["team_leader", "manager"]), async (req, res) => {
+    const announcementId = Number(req.params.id)
+    const incomingTitle = req.body?.title
+    const incomingContent = req.body?.content
+    const incomingPriority = req.body?.priority
+    const title = incomingTitle === undefined ? null : String(incomingTitle || "").trim()
+    const content = incomingContent === undefined ? null : String(incomingContent || "").trim()
+    const priority = incomingPriority === undefined ? null : normalizeAnnouncementPriority(incomingPriority)
+
+    if (!announcementId || Number.isNaN(announcementId)) {
+        return res.status(400).json({ error: "Valid announcement id is required" })
+    }
+
+    if (title === null && content === null && priority === null) {
+        return res.status(400).json({ error: "Provide title, content, or priority to update" })
+    }
+
+    if (title !== null && !title) {
+        return res.status(400).json({ error: "title cannot be empty" })
+    }
+
+    if (content !== null && !content) {
+        return res.status(400).json({ error: "content cannot be empty" })
+    }
+
+    if (incomingPriority !== undefined && !priority) {
+        return res.status(400).json({ error: "priority must be low, normal, high, or urgent" })
+    }
+
+    try {
+        const updateResult = await pool.query(
+            `
+            UPDATE announcements
+            SET
+                title = COALESCE($1, title),
+                content = COALESCE($2, content),
+                priority = COALESCE($3, priority),
+                updated_at = NOW()
+            WHERE id = $4
+            RETURNING id
+            `,
+            [title, content, priority, announcementId]
+        )
+
+        if (updateResult.rowCount === 0) {
+            return res.status(404).json({ error: "Announcement not found" })
+        }
+
+        const announcement = await fetchAnnouncementById(announcementId)
+        res.json(announcement)
+    } catch (error) {
+        console.error("Failed to update announcement:", error)
+        res.status(500).json({ error: "Failed to update announcement" })
+    }
+})
+
+app.delete("/announcements/:id", requireAuth, requireRoles(["team_leader", "manager"]), async (req, res) => {
+    const announcementId = Number(req.params.id)
+    if (!announcementId || Number.isNaN(announcementId)) {
+        return res.status(400).json({ error: "Valid announcement id is required" })
+    }
+
+    try {
+        const result = await pool.query(
+            `
+            DELETE FROM announcements
+            WHERE id = $1
+            RETURNING id
+            `,
+            [announcementId]
+        )
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: "Announcement not found" })
+        }
+
+        res.json({ message: "Announcement deleted successfully", id: announcementId })
+    } catch (error) {
+        console.error("Failed to delete announcement:", error)
+        res.status(500).json({ error: "Failed to delete announcement" })
+    }
+})
+
+app.get("/announcements/:id/comments", requireAuth, async (req, res) => {
+    const announcementId = Number(req.params.id)
+    if (!announcementId || Number.isNaN(announcementId)) {
+        return res.status(400).json({ error: "Valid announcement id is required" })
+    }
+
+    try {
+        const announcement = await fetchAnnouncementById(announcementId)
+        if (!announcement) {
+            return res.status(404).json({ error: "Announcement not found" })
+        }
+
+        const result = await pool.query(
+            `
+            SELECT
+                c.id,
+                c.announcement_id,
+                c.author_id,
+                c.comment,
+                c.created_at,
+                CONCAT(a.first_name, ' ', a.last_name) AS author_name,
+                a.english_name AS author_english_name,
+                a.chinese_name AS author_chinese_name
+            FROM announcement_comments c
+            JOIN employees a ON a.id = c.author_id
+            WHERE c.announcement_id = $1
+            ORDER BY c.created_at ASC, c.id ASC
+            `,
+            [announcementId]
+        )
+
+        res.json(result.rows)
+    } catch (error) {
+        console.error("Failed to fetch announcement comments:", error)
+        res.status(500).json({ error: "Failed to fetch announcement comments" })
+    }
+})
+
+app.post("/announcements/:id/comments", requireAuth, async (req, res) => {
+    const announcementId = Number(req.params.id)
+    const comment = String(req.body?.comment || "").trim()
+
+    if (!announcementId || Number.isNaN(announcementId)) {
+        return res.status(400).json({ error: "Valid announcement id is required" })
+    }
+
+    if (!comment) {
+        return res.status(400).json({ error: "comment is required" })
+    }
+
+    try {
+        const announcement = await fetchAnnouncementById(announcementId)
+        if (!announcement) {
+            return res.status(404).json({ error: "Announcement not found" })
+        }
+
+        const result = await pool.query(
+            `
+            WITH inserted AS (
+                INSERT INTO announcement_comments (announcement_id, author_id, comment)
+                VALUES ($1, $2, $3)
+                RETURNING id, announcement_id, author_id, comment, created_at
+            )
+            SELECT
+                i.id,
+                i.announcement_id,
+                i.author_id,
+                i.comment,
+                i.created_at,
+                CONCAT(a.first_name, ' ', a.last_name) AS author_name,
+                a.english_name AS author_english_name,
+                a.chinese_name AS author_chinese_name
+            FROM inserted i
+            JOIN employees a ON a.id = i.author_id
+            `,
+            [announcementId, req.authUser.id, comment]
+        )
+
+        res.status(201).json(result.rows[0])
+    } catch (error) {
+        console.error("Failed to create announcement comment:", error)
+        res.status(500).json({ error: "Failed to create announcement comment" })
     }
 })
 

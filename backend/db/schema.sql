@@ -116,6 +116,27 @@ CREATE TABLE IF NOT EXISTS employee_fixed_schedule (
   CONSTRAINT employee_fixed_schedule_unique_employee_day UNIQUE (employee_id, day_of_week)
 );
 
+-- Internal announcements published by admins/team leaders.
+CREATE TABLE IF NOT EXISTS announcements (
+  id BIGSERIAL PRIMARY KEY,
+  title VARCHAR(200) NOT NULL,
+  content TEXT NOT NULL,
+  priority VARCHAR(20) NOT NULL DEFAULT 'normal',
+  created_by BIGINT NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT announcements_priority_check CHECK (priority IN ('low', 'normal', 'high', 'urgent'))
+);
+
+-- Discussion comments under announcements.
+CREATE TABLE IF NOT EXISTS announcement_comments (
+  id BIGSERIAL PRIMARY KEY,
+  announcement_id BIGINT NOT NULL REFERENCES announcements(id) ON DELETE CASCADE,
+  author_id BIGINT NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
+  comment TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_schedules_employee_date ON schedules (employee_id, schedule_date);
 CREATE INDEX IF NOT EXISTS idx_schedules_date ON schedules (schedule_date);
 CREATE INDEX IF NOT EXISTS idx_availability_employee ON availability (employee_id);
@@ -123,5 +144,8 @@ CREATE INDEX IF NOT EXISTS idx_requests_employee_status ON requests (employee_id
 CREATE INDEX IF NOT EXISTS idx_requests_schedule ON requests (schedule_id);
 CREATE INDEX IF NOT EXISTS idx_employee_fixed_schedule_employee ON employee_fixed_schedule (employee_id);
 CREATE INDEX IF NOT EXISTS idx_employee_fixed_schedule_shift ON employee_fixed_schedule (shift_id);
+CREATE INDEX IF NOT EXISTS idx_announcements_created_at ON announcements (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_announcements_priority ON announcements (priority);
+CREATE INDEX IF NOT EXISTS idx_announcement_comments_announcement_created ON announcement_comments (announcement_id, created_at ASC);
 
 COMMIT;
