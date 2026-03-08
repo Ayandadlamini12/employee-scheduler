@@ -285,6 +285,40 @@ app.get("/stats/dashboard", async (req, res) => {
     }
 })
 
+app.get("/stats/today-shifts", async (req, res) => {
+    const dashboardTimezone = process.env.DASHBOARD_TIMEZONE || FIXED_SCHEDULE_TIMEZONE || "Asia/Taipei"
+
+    try {
+        const result = await pool.query(
+            `
+            WITH local_day AS (
+                SELECT (NOW() AT TIME ZONE $1)::date AS local_date
+            )
+            SELECT
+                s.id AS schedule_id,
+                s.employee_id,
+                CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
+                e.english_name AS employee_english_name,
+                e.chinese_name AS employee_chinese_name,
+                e.role_title AS role,
+                TO_CHAR(sh.start_time, 'HH24:MI') AS shift_start,
+                TO_CHAR(sh.end_time, 'HH24:MI') AS shift_end
+            FROM schedules s
+            JOIN employees e ON e.id = s.employee_id
+            JOIN shifts sh ON sh.id = s.shift_id
+            JOIN local_day d ON d.local_date = s.schedule_date
+            ORDER BY sh.start_time ASC, COALESCE(e.english_name, e.last_name) ASC, e.first_name ASC
+            `,
+            [dashboardTimezone]
+        )
+
+        res.json(result.rows)
+    } catch (error) {
+        console.error("Failed to fetch today shifts:", error)
+        res.status(500).json({ error: "Failed to fetch today shifts" })
+    }
+})
+
 app.get("/employees/:id", async (req, res) => {
     const employeeId = Number(req.params.id)
 
