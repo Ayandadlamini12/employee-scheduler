@@ -1,4 +1,4 @@
-{
+﻿{
   "appTitle": "綺麗美地",
   "selectLanguageTitle": "選擇語言",
   "selectLanguageBody": "請選擇偏好語言以繼續。",
@@ -11,6 +11,7 @@
   "employeeSchedulingSystem": "員工排班系統",
   "employeesLabel": "員工",
   "shiftsToday": "今日班次",
+  "shiftsThisWeek": "本週班次",
   "requests": "請求",
   "weeklySchedule": "每週排班",
   "weekOfRange": "{{start}} 到 {{end}}",
@@ -50,3 +51,4 @@
   "approve": "批准",
   "reject": "拒絕"
 }
+

@@ -11,6 +11,7 @@
   "employeeSchedulingSystem": "Employee Scheduling System",
   "employeesLabel": "Employees",
   "shiftsToday": "Shifts Today",
+  "shiftsThisWeek": "Shifts This Week",
   "requests": "Requests",
   "weeklySchedule": "Weekly Schedule",
   "weekOfRange": "Week of {{start}} to {{end}}",

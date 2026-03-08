@@ -189,18 +189,33 @@ app.get("/stats/dashboard", async (req, res) => {
     try {
         const result = await pool.query(
             `
+            WITH local_now AS (
+                SELECT (NOW() AT TIME ZONE $1)::date AS local_date
+            ),
+            local_week AS (
+                SELECT
+                    local_date,
+                    (local_date - ((EXTRACT(ISODOW FROM local_date)::int) - 1))::date AS week_start
+                FROM local_now
+            )
             SELECT
                 (SELECT COUNT(*)::INT FROM employees) AS total_employees,
                 (
                     SELECT COUNT(*)::INT
                     FROM schedules
-                    WHERE schedule_date = (NOW() AT TIME ZONE $1)::date
+                    WHERE schedule_date = lw.local_date
                 ) AS shifts_today,
+                (
+                    SELECT COUNT(*)::INT
+                    FROM schedules
+                    WHERE schedule_date BETWEEN lw.week_start AND (lw.week_start + INTERVAL '6 days')::date
+                ) AS shifts_this_week,
                 (
                     SELECT COUNT(*)::INT
                     FROM requests
                     WHERE status = 'pending'
                 ) AS pending_requests
+            FROM local_week lw
             `,
             [dashboardTimezone]
         )

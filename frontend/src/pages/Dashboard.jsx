@@ -6,7 +6,7 @@ export default function Dashboard() {
   const { t } = useTranslation()
   const [stats, setStats] = useState({
     total_employees: 0,
-    shifts_today: 0,
+    shifts_this_week: 0,
     pending_requests: 0,
   })
   const [isLoading, setIsLoading] = useState(true)
@@ -31,7 +31,7 @@ export default function Dashboard() {
         const data = await response.json()
         setStats({
           total_employees: Number(data.total_employees) || 0,
-          shifts_today: Number(data.shifts_today) || 0,
+          shifts_this_week: Number(data.shifts_this_week ?? data.shifts_today) || 0,
           pending_requests: Number(data.pending_requests) || 0,
         })
       } catch (loadError) {
@@ -69,9 +69,9 @@ export default function Dashboard() {
         </div>
 
         <div className="bg-white p-6 rounded shadow">
-          <p>{t("shiftsToday")}</p>
+          <p>{t("shiftsThisWeek")}</p>
           <h2 className="text-3xl font-bold">
-            {isLoading ? "-" : stats.shifts_today}
+            {isLoading ? "-" : stats.shifts_this_week}
           </h2>
         </div>
 
