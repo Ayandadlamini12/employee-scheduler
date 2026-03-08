@@ -49,6 +49,23 @@
   "failedToLoadRequests": "載入請求失敗。",
   "failedToUpdateRequest": "更新請求失敗。",
   "approve": "批准",
-  "reject": "拒絕"
+  "reject": "拒絕",
+  "roles": {
+    "Supervisor": "主管",
+    "Cashier": "收銀員",
+    "Stock Associate": "庫存助理",
+    "Barista": "咖啡師",
+    "Assistant Manager": "副經理"
+  },
+  "employment": {
+    "full_time": "全職",
+    "part_time": "兼職",
+    "contract": "合約",
+    "temp": "臨時"
+  },
+  "languages": {
+    "English": "英文",
+    "Traditional Chinese": "繁體中文"
+  }
 }
 

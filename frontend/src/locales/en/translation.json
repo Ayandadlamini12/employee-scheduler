@@ -49,5 +49,22 @@
   "failedToLoadRequests": "Failed to load requests.",
   "failedToUpdateRequest": "Failed to update request.",
   "approve": "Approve",
-  "reject": "Reject"
+  "reject": "Reject",
+  "roles": {
+    "Supervisor": "Supervisor",
+    "Cashier": "Cashier",
+    "Stock Associate": "Stock Associate",
+    "Barista": "Barista",
+    "Assistant Manager": "Assistant Manager"
+  },
+  "employment": {
+    "full_time": "Full Time",
+    "part_time": "Part Time",
+    "contract": "Contract",
+    "temp": "Temporary"
+  },
+  "languages": {
+    "English": "English",
+    "Traditional Chinese": "Traditional Chinese"
+  }
 }

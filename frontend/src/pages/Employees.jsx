@@ -11,9 +11,25 @@ function statusBadgeClass(status) {
   return "bg-slate-100 text-slate-700 ring-slate-200"
 }
 
-function formatLanguage(value) {
-  if (value === "zh-TW") return "Traditional Chinese"
-  if (value === "en") return "English"
+function translateRole(roleTitle, t) {
+  if (!roleTitle) return "-"
+  return t(`roles.${roleTitle}`, { defaultValue: roleTitle })
+}
+
+function translateEmploymentType(employmentType, t) {
+  if (!employmentType) return "-"
+  return t(`employment.${employmentType}`, { defaultValue: employmentType })
+}
+
+function translatePreferredLanguage(languageCode, t) {
+  if (languageCode === "zh-TW") {
+    return t("languages.Traditional Chinese", { defaultValue: "Traditional Chinese" })
+  }
+
+  if (languageCode === "en") {
+    return t("languages.English", { defaultValue: "English" })
+  }
+
   return "-"
 }
 
@@ -100,9 +116,9 @@ export default function Employees() {
                       </p>
                       <p className="text-xs text-slate-500">{employee.chinese_name || "-"}</p>
                     </td>
-                    <td className="px-4 py-3 text-slate-700">{employee.role_title || "-"}</td>
-                    <td className="px-4 py-3 text-slate-700">{employee.employment_type || "-"}</td>
-                    <td className="px-4 py-3 text-slate-700">{formatLanguage(employee.preferred_language)}</td>
+                    <td className="px-4 py-3 text-slate-700">{translateRole(employee.role_title, t)}</td>
+                    <td className="px-4 py-3 text-slate-700">{translateEmploymentType(employee.employment_type, t)}</td>
+                    <td className="px-4 py-3 text-slate-700">{translatePreferredLanguage(employee.preferred_language, t)}</td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2 py-1 text-xs font-semibold ring-1 ${statusBadgeClass(employee.status)}`}>
                         {employee.status || "-"}
