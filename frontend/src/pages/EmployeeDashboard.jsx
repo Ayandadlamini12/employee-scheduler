@@ -34,11 +34,11 @@ function getTargetDisplayName(requestRow, isChinese) {
 
 function statusBadgeClass(status) {
   const normalized = String(status || "").toLowerCase()
-  if (normalized === "scheduled") return "bg-sky-50 text-sky-700 ring-sky-200"
-  if (normalized === "published") return "bg-emerald-50 text-emerald-700 ring-emerald-200"
-  if (normalized === "completed") return "bg-slate-100 text-slate-700 ring-slate-200"
-  if (normalized === "cancelled") return "bg-rose-50 text-rose-700 ring-rose-200"
-  return "bg-slate-100 text-slate-700 ring-slate-200"
+  if (normalized === "scheduled") return "bg-blue-100 text-blue-900 ring-blue-300"
+  if (normalized === "published") return "bg-emerald-100 text-emerald-900 ring-emerald-300"
+  if (normalized === "completed") return "bg-slate-200 text-slate-900 ring-slate-300"
+  if (normalized === "cancelled") return "bg-rose-100 text-rose-900 ring-rose-300"
+  return "bg-slate-200 text-slate-900 ring-slate-300"
 }
 
 export default function EmployeeDashboard({ employeeId }) {
@@ -208,10 +208,61 @@ export default function EmployeeDashboard({ employeeId }) {
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="overflow-x-auto">
+      <div className="rounded-xl border border-slate-300 bg-white shadow-sm">
+        <div className="space-y-3 p-4 md:hidden">
+          {isLoading ? (
+            <p className="text-sm text-slate-600">{t("employeeDashboard.loading")}</p>
+          ) : tomorrowShifts.length === 0 ? (
+            <p className="text-sm text-slate-600">{t("employeeDashboard.noTomorrowShifts")}</p>
+          ) : (
+            tomorrowShifts.map((shiftRow) => {
+              const pendingRequest = pendingReplacementBySchedule[shiftRow.schedule_id]
+              const replacementDisplayName = pendingRequest
+                ? getTargetDisplayName(pendingRequest, isChinese)
+                : null
+
+              return (
+                <div key={shiftRow.schedule_id} className="rounded-lg border border-slate-300 bg-slate-50 p-4 shadow-sm">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                    {new Date(shiftRow.schedule_date).toLocaleDateString(locale, {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </p>
+                  <p className="mt-2 text-lg font-bold text-slate-900">
+                    {formatTime(shiftRow.start_time)} - {formatTime(shiftRow.end_time)}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-700">
+                    {shiftRow.role ? t(`roles.${shiftRow.role}`, { defaultValue: shiftRow.role }) : "-"}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-700">
+                    {replacementDisplayName
+                      ? t("employeeDashboard.pendingWithName", {
+                        name: replacementDisplayName,
+                        defaultValue: `Pending: ${replacementDisplayName}`,
+                      })
+                      : t("employeeDashboard.noRecommendation")}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => openRecommendModal(shiftRow)}
+                    disabled={Boolean(pendingRequest) || coworkers.length === 0}
+                    className="mt-3 w-full rounded-md bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {pendingRequest
+                      ? t("employeeDashboard.requested")
+                      : t("employeeDashboard.recommendReplacement")}
+                  </button>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="min-w-[900px] w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-200 text-left text-xs font-bold uppercase tracking-wide text-slate-700">
               <tr>
                 <th className="px-4 py-3">{t("employeeDashboard.shiftDate")}</th>
                 <th className="px-4 py-3">{t("employeeDashboard.shiftTime")}</th>
@@ -224,13 +275,13 @@ export default function EmployeeDashboard({ employeeId }) {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td className="px-4 py-6 text-slate-500" colSpan={6}>
+                  <td className="px-4 py-6 text-slate-600" colSpan={6}>
                     {t("employeeDashboard.loading")}
                   </td>
                 </tr>
               ) : tomorrowShifts.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-slate-500" colSpan={6}>
+                  <td className="px-4 py-6 text-slate-600" colSpan={6}>
                     {t("employeeDashboard.noTomorrowShifts")}
                   </td>
                 </tr>
@@ -242,7 +293,7 @@ export default function EmployeeDashboard({ employeeId }) {
                     : null
 
                   return (
-                    <tr key={shiftRow.schedule_id} className="border-t border-slate-100 align-top">
+                    <tr key={shiftRow.schedule_id} className="border-t border-slate-200 align-top transition hover:bg-slate-50">
                       <td className="px-4 py-3 text-slate-700">
                         {new Date(shiftRow.schedule_date).toLocaleDateString(locale, {
                           year: "numeric",
@@ -250,7 +301,7 @@ export default function EmployeeDashboard({ employeeId }) {
                           day: "numeric",
                         })}
                       </td>
-                      <td className="px-4 py-3 font-semibold text-slate-800">
+                      <td className="px-4 py-3 font-semibold text-slate-900">
                         {formatTime(shiftRow.start_time)} - {formatTime(shiftRow.end_time)}
                       </td>
                       <td className="px-4 py-3 text-slate-700">
@@ -274,7 +325,7 @@ export default function EmployeeDashboard({ employeeId }) {
                           type="button"
                           onClick={() => openRecommendModal(shiftRow)}
                           disabled={Boolean(pendingRequest) || coworkers.length === 0}
-                          className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded-md bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {pendingRequest
                             ? t("employeeDashboard.requested")

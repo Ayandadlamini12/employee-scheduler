@@ -141,15 +141,15 @@ export default function Requests() {
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+        <div className="rounded-lg border border-rose-300 bg-rose-100 px-4 py-3 text-sm font-semibold text-rose-900">
           {t(error, { defaultValue: error })}
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="rounded-xl border border-slate-300 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="min-w-[980px] w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-200 text-left text-xs font-bold uppercase tracking-wide text-slate-700">
               <tr>
                 <th className="px-4 py-3">{t("employee")}</th>
                 <th className="px-4 py-3">{t("scheduleDate")}</th>
@@ -178,7 +178,7 @@ export default function Requests() {
                   const isUpdating = updatingRequestId === request.id
 
                   return (
-                    <tr key={request.id} className="border-t border-slate-100 align-top">
+                    <tr key={request.id} className="border-t border-slate-200 align-top transition hover:bg-slate-50">
                       <td className="px-4 py-3 font-medium text-slate-800">
                         {getEmployeeDisplayName(request, isChinese)}
                       </td>

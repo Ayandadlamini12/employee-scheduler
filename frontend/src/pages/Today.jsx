@@ -22,11 +22,11 @@ function getEmployeeDisplayName(row, isChinese) {
 
 function statusBadgeClass(status) {
   const normalized = String(status || "").toLowerCase()
-  if (normalized === "scheduled") return "bg-sky-50 text-sky-700 ring-sky-200"
-  if (normalized === "published") return "bg-emerald-50 text-emerald-700 ring-emerald-200"
-  if (normalized === "completed") return "bg-slate-100 text-slate-700 ring-slate-200"
-  if (normalized === "cancelled") return "bg-rose-50 text-rose-700 ring-rose-200"
-  return "bg-slate-100 text-slate-700 ring-slate-200"
+  if (normalized === "scheduled") return "bg-blue-100 text-blue-900 ring-blue-300"
+  if (normalized === "published") return "bg-emerald-100 text-emerald-900 ring-emerald-300"
+  if (normalized === "completed") return "bg-slate-200 text-slate-900 ring-slate-300"
+  if (normalized === "cancelled") return "bg-rose-100 text-rose-900 ring-rose-300"
+  return "bg-slate-200 text-slate-900 ring-slate-300"
 }
 
 export default function Today() {
@@ -145,15 +145,15 @@ export default function Today() {
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+        <div className="rounded-lg border border-rose-300 bg-rose-100 px-4 py-3 text-sm font-semibold text-rose-900">
           {t(error, { defaultValue: error })}
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="rounded-xl border border-slate-300 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="min-w-[880px] w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-200 text-left text-xs font-bold uppercase tracking-wide text-slate-700">
               <tr>
                 <th className="px-4 py-3">{t("today.employee")}</th>
                 <th className="px-4 py-3">{t("today.role")}</th>
@@ -177,8 +177,8 @@ export default function Today() {
                 </tr>
               ) : (
                 rows.map((row) => (
-                  <tr key={row.schedule_id} className="border-t border-slate-100 align-top">
-                    <td className="px-4 py-3 font-medium text-slate-800">
+                  <tr key={row.schedule_id} className="border-t border-slate-200 align-top transition hover:bg-slate-50">
+                    <td className="px-4 py-3 font-semibold text-slate-900">
                       {getEmployeeDisplayName(row, isChinese)}
                     </td>
                     <td className="px-4 py-3 text-slate-700">
@@ -196,7 +196,7 @@ export default function Today() {
                       <button
                         type="button"
                         onClick={() => openAdjustModal(row)}
-                        className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+                        className="rounded-md bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800"
                       >
                         {t("today.adjust")}
                       </button>

@@ -2,6 +2,35 @@ import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { API_BASE_URL } from "../config/api"
 
+function MetricIcon({ type }) {
+  const commonClass = "h-5 w-5"
+
+  if (type === "employees") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={commonClass}>
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    )
+  }
+
+  if (type === "shifts") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={commonClass}>
+        <rect x="3" y="4" width="18" height="18" rx="2" />
+        <path d="M16 2v4M8 2v4M3 10h18" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={commonClass}>
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  )
+}
+
 function getEmployeeDisplayName(shiftRow, isChinese) {
   if (isChinese && shiftRow.employee_chinese_name) {
     return shiftRow.employee_chinese_name
@@ -93,43 +122,52 @@ export default function Dashboard() {
       </h1>
 
       {error ? (
-        <div className="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+        <div className="mb-6 rounded-lg border border-rose-300 bg-rose-100 px-4 py-3 text-sm font-semibold text-rose-900">
           {t(error, { defaultValue: error })}
         </div>
       ) : null}
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
 
-        <div className="bg-white p-6 rounded shadow">
-          <p>{t("employeesLabel")}</p>
-          <h2 className="text-3xl font-bold">
+        <div className="rounded-xl border border-slate-300 bg-white p-6 shadow-sm">
+          <div className="mb-3 inline-flex rounded-lg bg-slate-900 p-2 text-white">
+            <MetricIcon type="employees" />
+          </div>
+          <p className="text-sm font-semibold text-slate-700">{t("employeesLabel")}</p>
+          <h2 className="mt-1 text-3xl font-extrabold text-slate-950">
             {isLoading ? "-" : stats.total_employees}
           </h2>
         </div>
 
-        <div className="bg-white p-6 rounded shadow">
-          <p>{t("shiftsThisWeek")}</p>
-          <h2 className="text-3xl font-bold">
+        <div className="rounded-xl border border-slate-300 bg-white p-6 shadow-sm">
+          <div className="mb-3 inline-flex rounded-lg bg-blue-700 p-2 text-white">
+            <MetricIcon type="shifts" />
+          </div>
+          <p className="text-sm font-semibold text-slate-700">{t("shiftsThisWeek")}</p>
+          <h2 className="mt-1 text-3xl font-extrabold text-slate-950">
             {isLoading ? "-" : stats.shifts_this_week}
           </h2>
         </div>
 
-        <div className="bg-white p-6 rounded shadow">
-          <p>{t("requests")}</p>
-          <h2 className="text-3xl font-bold">
+        <div className="rounded-xl border border-slate-300 bg-white p-6 shadow-sm">
+          <div className="mb-3 inline-flex rounded-lg bg-amber-600 p-2 text-white">
+            <MetricIcon type="requests" />
+          </div>
+          <p className="text-sm font-semibold text-slate-700">{t("requests")}</p>
+          <h2 className="mt-1 text-3xl font-extrabold text-slate-950">
             {isLoading ? "-" : stats.pending_requests}
           </h2>
         </div>
 
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 px-6 py-4">
+      <div className="rounded-xl border border-slate-300 bg-white shadow-sm">
+        <div className="border-b border-slate-200 bg-slate-100 px-6 py-4">
           <h2 className="text-lg font-semibold text-slate-900">{t("dashboardTodayScheduleTitle")}</h2>
         </div>
 
         {todayShiftsError ? (
-          <div className="border-b border-rose-100 bg-rose-50 px-6 py-3 text-sm font-medium text-rose-700">
+          <div className="border-b border-rose-200 bg-rose-100 px-6 py-3 text-sm font-semibold text-rose-900">
             {t(todayShiftsError, { defaultValue: todayShiftsError })}
           </div>
         ) : null}
@@ -144,7 +182,7 @@ export default function Dashboard() {
               {visibleTodayShifts.map((shiftRow) => (
                 <div
                   key={shiftRow.schedule_id}
-                  className="flex items-center justify-between gap-4 rounded-lg border border-slate-100 px-3 py-2"
+                  className="flex items-center justify-between gap-4 rounded-lg border border-slate-300 px-3 py-2 transition hover:bg-slate-50"
                 >
                   <div>
                     <p className="text-sm font-semibold text-slate-800">
@@ -154,7 +192,7 @@ export default function Dashboard() {
                       {shiftRow.role ? t(`roles.${shiftRow.role}`, { defaultValue: shiftRow.role }) : "-"}
                     </p>
                   </div>
-                  <div className="text-sm font-semibold text-slate-700">
+                  <div className="text-sm font-bold text-slate-800">
                     {shiftRow.shift_start} - {shiftRow.shift_end}
                   </div>
                 </div>
@@ -164,11 +202,11 @@ export default function Dashboard() {
         </div>
 
         {todayShifts.length > 4 ? (
-          <div className="border-t border-slate-100 px-6 py-3">
+          <div className="border-t border-slate-200 px-6 py-3">
             <button
               type="button"
               onClick={() => setShowAllShifts((prev) => !prev)}
-              className="text-sm font-semibold text-slate-700 hover:text-slate-900"
+              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-100"
             >
               {showAllShifts ? t("dashboardShowLess") : t("dashboardShowAll")}
             </button>

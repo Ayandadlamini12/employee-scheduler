@@ -77,15 +77,15 @@ export default function Employees() {
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+        <div className="rounded-lg border border-rose-300 bg-rose-100 px-4 py-3 text-sm font-semibold text-rose-900">
           {error}
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="rounded-xl border border-slate-300 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="min-w-[980px] w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-200 text-left text-xs font-bold uppercase tracking-wide text-slate-700">
               <tr>
                 <th className="px-4 py-3">{t("employees.employee")}</th>
                 <th className="px-4 py-3">{t("employees.role")}</th>
@@ -109,12 +109,12 @@ export default function Employees() {
                 </tr>
               ) : (
                 employees.map((employee) => (
-                  <tr key={employee.id} className="border-t border-slate-100 align-top">
+                  <tr key={employee.id} className="border-t border-slate-200 align-top transition hover:bg-slate-50">
                     <td className="px-4 py-3">
-                      <p className="font-semibold text-slate-800">
+                      <p className="font-bold text-slate-900">
                         {employee.english_name || `${employee.first_name || ""} ${employee.last_name || ""}`.trim() || "-"}
                       </p>
-                      <p className="text-xs text-slate-500">{employee.chinese_name || "-"}</p>
+                      <p className="text-xs font-medium text-slate-700">{employee.chinese_name || "-"}</p>
                     </td>
                     <td className="px-4 py-3 text-slate-700">{translateRole(employee.role_title, t)}</td>
                     <td className="px-4 py-3 text-slate-700">{translateEmploymentType(employee.employment_type, t)}</td>

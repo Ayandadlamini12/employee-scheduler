@@ -3,10 +3,10 @@ import { useTranslation } from "react-i18next"
 import { API_BASE_URL } from "../config/api"
 
 const shiftTypeStyles = {
-  opening: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-  mid: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
-  closing: "bg-violet-50 text-violet-700 ring-1 ring-violet-200",
-  weekend: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+  opening: "bg-emerald-600 text-white ring-1 ring-emerald-700",
+  mid: "bg-blue-600 text-white ring-1 ring-blue-700",
+  closing: "bg-purple-600 text-white ring-1 ring-purple-700",
+  weekend: "bg-amber-500 text-slate-950 ring-1 ring-amber-600",
 }
 
 function parseDateOnly(value) {
@@ -80,14 +80,14 @@ function getEmployeeDisplayName(employee, isChinese) {
 function ShiftBlock({ shift }) {
   const { t } = useTranslation()
   const blockStyles = shift.isRequested
-    ? "bg-rose-50 text-rose-700 ring-1 ring-rose-200"
+    ? "bg-rose-600 text-white ring-1 ring-rose-700"
     : shiftTypeStyles[shift.type] || shiftTypeStyles.mid
 
   return (
     <button
       type="button"
       onClick={shift.onClick}
-      className={`w-full rounded-md px-2 py-1 text-left text-xs font-semibold transition hover:brightness-95 ${blockStyles}`}
+      className={`w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold transition hover:brightness-95 ${blockStyles}`}
     >
       {shift.start} - {shift.end}
       {shift.isRequested ? <span className="ml-1 align-middle text-[10px]">{t("requested")}</span> : null}
@@ -99,7 +99,7 @@ function ScheduleCell({ shifts, onShiftClick }) {
   const { t } = useTranslation()
 
   if (!shifts || shifts.length === 0) {
-    return <div className="text-xs text-slate-400">{t("off")}</div>
+    return <div className="text-xs font-medium text-slate-500">{t("off")}</div>
   }
 
   return (
@@ -354,36 +354,36 @@ export default function Scheduler() {
           <p className="mt-1 text-sm text-slate-500">{weekRangeLabel}</p>
         </div>
         <div className="flex flex-wrap gap-2 text-xs">
-          <span className="rounded-full bg-emerald-50 px-3 py-1 font-semibold text-emerald-700 ring-1 ring-emerald-200">
+          <span className="rounded-full bg-emerald-600 px-3 py-1 font-semibold text-white ring-1 ring-emerald-700">
             {t("opening")}
           </span>
-          <span className="rounded-full bg-sky-50 px-3 py-1 font-semibold text-sky-700 ring-1 ring-sky-200">
+          <span className="rounded-full bg-blue-600 px-3 py-1 font-semibold text-white ring-1 ring-blue-700">
             {t("mid")}
           </span>
-          <span className="rounded-full bg-violet-50 px-3 py-1 font-semibold text-violet-700 ring-1 ring-violet-200">
+          <span className="rounded-full bg-purple-600 px-3 py-1 font-semibold text-white ring-1 ring-purple-700">
             {t("closing")}
           </span>
-          <span className="rounded-full bg-amber-50 px-3 py-1 font-semibold text-amber-700 ring-1 ring-amber-200">
+          <span className="rounded-full bg-amber-500 px-3 py-1 font-semibold text-slate-950 ring-1 ring-amber-600">
             {t("weekend")}
           </span>
         </div>
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+        <div className="rounded-lg border border-rose-300 bg-rose-100 px-4 py-3 text-sm font-semibold text-rose-900">
           {t(error, { defaultValue: error })}
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="rounded-xl border border-slate-300 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <div className="min-w-[940px]">
-            <div className="grid grid-cols-[220px_repeat(7,minmax(100px,1fr))] border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              <div className="border-r border-slate-200 px-4 py-3">{t("employee")}</div>
+            <div className="grid grid-cols-[220px_repeat(7,minmax(100px,1fr))] border-b border-slate-300 bg-slate-200 text-xs font-bold uppercase tracking-wide text-slate-700">
+              <div className="border-r border-slate-300 px-4 py-3">{t("employee")}</div>
               {days.map((day) => (
-                <div key={day.key} className="border-r border-slate-200 px-3 py-3 last:border-r-0">
+                <div key={day.key} className="border-r border-slate-300 px-3 py-3 last:border-r-0">
                   <div>{day.label}</div>
-                  <div className="mt-1 text-[11px] font-medium normal-case tracking-normal text-slate-400">
+                  <div className="mt-1 text-[11px] font-semibold normal-case tracking-normal text-slate-600">
                     {day.date}
                   </div>
                 </div>
@@ -398,18 +398,18 @@ export default function Scheduler() {
               employees.map((employee) => (
                 <div
                   key={employee.id}
-                  className="grid grid-cols-[220px_repeat(7,minmax(100px,1fr))] border-b border-slate-100 last:border-b-0"
+                  className="grid grid-cols-[220px_repeat(7,minmax(100px,1fr))] border-b border-slate-200 last:border-b-0 hover:bg-slate-50"
                 >
-                  <div className="border-r border-slate-200 px-4 py-3">
-                    <p className="text-sm font-semibold text-slate-800">{employee.displayName}</p>
-                    <p className="text-xs text-slate-500">{employee.role}</p>
-                    <p className="mt-1 text-xs font-medium text-slate-400">
+                  <div className="border-r border-slate-300 px-4 py-3">
+                    <p className="text-sm font-bold text-slate-900">{employee.displayName}</p>
+                    <p className="text-xs font-medium text-slate-700">{employee.role}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-600">
                       {t("hoursScheduled", { hours: employee.scheduledHours })}
                     </p>
                   </div>
 
                   {days.map((day) => (
-                    <div key={`${employee.id}-${day.key}`} className="border-r border-slate-100 px-3 py-3 last:border-r-0">
+                    <div key={`${employee.id}-${day.key}`} className="border-r border-slate-200 px-3 py-3 last:border-r-0">
                       <ScheduleCell
                         shifts={employee.shiftsByDate[day.key]}
                         onShiftClick={handleShiftClick}
