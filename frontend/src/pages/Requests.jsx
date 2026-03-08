@@ -15,7 +15,21 @@ function formatTime(value) {
   return match ? `${match[1]}:${match[2]}` : "-"
 }
 
-function formatRequestedChange(request) {
+function formatRequestedChange(request, isChinese, t) {
+  const requestType = String(request.request_type || "").toLowerCase()
+
+  if (requestType === "shift_swap") {
+    const replacementName = isChinese
+      ? (request.target_employee_chinese_name || request.target_employee_english_name || request.target_employee_name)
+      : (request.target_employee_english_name || request.target_employee_name || request.target_employee_chinese_name)
+
+    if (replacementName) {
+      return t("replacementWithName", { name: replacementName, defaultValue: `Replacement: ${replacementName}` })
+    }
+
+    return t("replacementLabel", { defaultValue: "Replacement" })
+  }
+
   if (request.requested_start && request.requested_end) {
     const start = formatTime(request.requested_start)
     const end = formatTime(request.requested_end)
@@ -171,7 +185,7 @@ export default function Requests() {
                       <td className="px-4 py-3 text-slate-600">
                         {formatDate(request.schedule_date, locale)}
                       </td>
-                      <td className="px-4 py-3 text-slate-700">{formatRequestedChange(request)}</td>
+                      <td className="px-4 py-3 text-slate-700">{formatRequestedChange(request, isChinese, t)}</td>
                       <td className="max-w-md px-4 py-3 text-slate-600">{request.reason || "-"}</td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2 py-1 text-xs font-semibold ring-1 ${statusBadgeClass(request.status)}`}>

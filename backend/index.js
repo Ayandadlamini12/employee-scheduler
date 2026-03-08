@@ -340,6 +340,51 @@ app.get("/employees/:id", async (req, res) => {
     }
 })
 
+app.get("/employees/:id/tomorrow-shifts", async (req, res) => {
+    const employeeId = Number(req.params.id)
+    const dashboardTimezone = process.env.DASHBOARD_TIMEZONE || FIXED_SCHEDULE_TIMEZONE || "Asia/Taipei"
+
+    if (!employeeId || Number.isNaN(employeeId)) {
+        return res.status(400).json({ error: "Valid employee id is required" })
+    }
+
+    try {
+        const result = await pool.query(
+            `
+            WITH local_days AS (
+                SELECT
+                    (NOW() AT TIME ZONE $1)::date AS local_today,
+                    ((NOW() AT TIME ZONE $1)::date + INTERVAL '1 day')::date AS local_tomorrow
+            )
+            SELECT
+                s.id AS schedule_id,
+                s.employee_id,
+                s.schedule_date,
+                s.status,
+                s.notes,
+                e.role_title AS role,
+                sh.id AS shift_id,
+                sh.name AS shift_name,
+                sh.start_time,
+                sh.end_time,
+                sh.is_overnight
+            FROM schedules s
+            JOIN employees e ON e.id = s.employee_id
+            JOIN shifts sh ON sh.id = s.shift_id
+            JOIN local_days d ON d.local_tomorrow = s.schedule_date
+            WHERE s.employee_id = $2
+            ORDER BY sh.start_time ASC, s.id ASC
+            `,
+            [dashboardTimezone, employeeId]
+        )
+
+        res.json(result.rows)
+    } catch (error) {
+        console.error("Failed to fetch tomorrow shifts:", error)
+        res.status(500).json({ error: "Failed to fetch tomorrow shifts" })
+    }
+})
+
 app.patch("/employees/:id/language", async (req, res) => {
     const employeeId = Number(req.params.id)
     const preferredLanguage = normalizePreferredLanguage(req.body?.preferred_language)
@@ -838,6 +883,136 @@ app.post("/requests", async (req, res) => {
         }
 
         res.status(500).json({ error: "Failed to create request" })
+    }
+})
+
+app.post("/requests/absence-replacement", async (req, res) => {
+    const {
+        employee_id,
+        schedule_id,
+        replacement_employee_id,
+        reason,
+    } = req.body || {}
+
+    const employeeId = Number(employee_id)
+    const scheduleId = Number(schedule_id)
+    const replacementEmployeeId = Number(replacement_employee_id)
+    const dashboardTimezone = process.env.DASHBOARD_TIMEZONE || FIXED_SCHEDULE_TIMEZONE || "Asia/Taipei"
+
+    if (!employeeId || Number.isNaN(employeeId)) {
+        return res.status(400).json({ error: "Valid employee_id is required" })
+    }
+
+    if (!scheduleId || Number.isNaN(scheduleId)) {
+        return res.status(400).json({ error: "Valid schedule_id is required" })
+    }
+
+    if (!replacementEmployeeId || Number.isNaN(replacementEmployeeId)) {
+        return res.status(400).json({ error: "Valid replacement_employee_id is required" })
+    }
+
+    if (!reason || !String(reason).trim()) {
+        return res.status(400).json({ error: "reason is required" })
+    }
+
+    if (replacementEmployeeId === employeeId) {
+        return res.status(400).json({ error: "replacement_employee_id must be different from employee_id" })
+    }
+
+    const client = await pool.connect()
+
+    try {
+        await client.query("BEGIN")
+
+        const scheduleLookup = await client.query(
+            `
+            WITH local_days AS (
+                SELECT ((NOW() AT TIME ZONE $1)::date + INTERVAL '1 day')::date AS local_tomorrow
+            )
+            SELECT
+                s.id,
+                s.employee_id,
+                s.schedule_date
+            FROM schedules s
+            JOIN local_days d ON d.local_tomorrow = s.schedule_date
+            WHERE s.id = $2
+              AND s.employee_id = $3
+            FOR UPDATE
+            `,
+            [dashboardTimezone, scheduleId, employeeId]
+        )
+
+        if (scheduleLookup.rowCount === 0) {
+            await client.query("ROLLBACK")
+            return res.status(400).json({
+                error: "Schedule must belong to employee and be for tomorrow (day-prior requests only)",
+            })
+        }
+
+        const replacementLookup = await client.query(
+            `
+            SELECT id
+            FROM employees
+            WHERE id = $1
+            LIMIT 1
+            `,
+            [replacementEmployeeId]
+        )
+
+        if (replacementLookup.rowCount === 0) {
+            await client.query("ROLLBACK")
+            return res.status(400).json({ error: "Replacement employee not found" })
+        }
+
+        const duplicatePending = await client.query(
+            `
+            SELECT id
+            FROM requests
+            WHERE employee_id = $1
+              AND schedule_id = $2
+              AND request_type = 'shift_swap'
+              AND status = 'pending'
+            LIMIT 1
+            `,
+            [employeeId, scheduleId]
+        )
+
+        if (duplicatePending.rowCount > 0) {
+            await client.query("ROLLBACK")
+            return res.status(409).json({ error: "A pending replacement request already exists for this shift" })
+        }
+
+        const result = await client.query(
+            `
+            INSERT INTO requests (
+                employee_id,
+                request_type,
+                status,
+                schedule_id,
+                target_employee_id,
+                reason
+            )
+            VALUES (
+                $1,
+                'shift_swap',
+                'pending',
+                $2,
+                $3,
+                $4
+            )
+            RETURNING *
+            `,
+            [employeeId, scheduleId, replacementEmployeeId, String(reason).trim()]
+        )
+
+        await client.query("COMMIT")
+        res.status(201).json(result.rows[0])
+    } catch (error) {
+        await client.query("ROLLBACK")
+        console.error("Failed to create absence replacement request:", error)
+        res.status(500).json({ error: "Failed to create absence replacement request" })
+    } finally {
+        client.release()
     }
 })
 
