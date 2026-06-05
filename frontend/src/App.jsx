@@ -121,6 +121,14 @@ function isAdminRole(role) {
   return role === "team_leader" || role === "manager"
 }
 
+function getUserInitials(user) {
+  const first = String(user?.first_name || "").trim()
+  const last = String(user?.last_name || "").trim()
+  const fallback = String(user?.email || user?.employee_code || "U").trim()
+  const initials = `${first.charAt(0)}${last.charAt(0)}`.trim()
+  return (initials || fallback.charAt(0) || "U").toUpperCase()
+}
+
 function AuthenticatedApp({
   authUser,
   isAdmin,
@@ -184,18 +192,41 @@ function AuthenticatedApp({
     return <Dashboard />
   }
 
-  const sidebar = (
-    <>
-      <div className="flex items-center justify-between md:mb-8">
-        <h1 className="text-xl font-extrabold tracking-tight text-slate-950">{t("appTitle")}</h1>
-        <button type="button" onClick={() => setMobileSidebarOpen(false)} className="md:hidden rounded-md p-1 text-slate-500 hover:bg-slate-100">
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+  const userName = [authUser?.first_name, authUser?.last_name].filter(Boolean).join(" ") || authUser?.email || "User"
+  const roleLabel = String(authUser?.role || "staff").replaceAll("_", " ")
+
+  const sidebarContent = (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-5">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Workforce</p>
+          <h1 className="truncate text-lg font-extrabold tracking-tight text-slate-950">{t("appTitle")}</h1>
+        </div>
+        <button
+          type="button"
+          onClick={() => setMobileSidebarOpen(false)}
+          className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
+          aria-label="Close navigation"
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
 
-      <nav className="flex gap-2 overflow-x-auto pb-1 md:block md:space-y-2 md:overflow-x-visible md:pb-0">
+      <div className="border-b border-slate-200 px-5 py-4">
+        <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-sm font-extrabold text-white shadow-sm">
+            {getUserInitials(authUser)}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-slate-950">{userName}</p>
+            <p className="truncate text-xs font-semibold capitalize text-slate-500">{roleLabel}</p>
+          </div>
+        </div>
+      </div>
+
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {navItems.map((item) => {
           const isActive = currentPage === item.key
           return (
@@ -203,61 +234,74 @@ function AuthenticatedApp({
               key={item.key}
               type="button"
               onClick={() => { setPage(item.key); setMobileSidebarOpen(false) }}
-              className={`inline-flex items-center gap-2 whitespace-nowrap rounded-lg border px-3 py-2 text-left text-sm font-semibold transition md:flex md:w-full ${
+              className={`group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold transition ${
                 isActive
-                  ? "border-slate-900 bg-slate-900 text-white shadow-sm"
-                  : "border-slate-300 bg-white text-slate-800 hover:border-slate-400 hover:bg-slate-50"
+                  ? "bg-blue-600 text-white shadow-sm shadow-blue-600/20"
+                  : "text-slate-700 hover:bg-slate-100 hover:text-slate-950"
               }`}
             >
-              <NavIcon icon={item.icon} />
-              {item.label}
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                isActive ? "bg-white/15 text-white" : "bg-white text-slate-500 ring-1 ring-slate-200 group-hover:text-blue-600"
+              }`}>
+                <NavIcon icon={item.icon} />
+              </span>
+              <span className="truncate">{item.label}</span>
             </button>
           )
         })}
       </nav>
 
-      <button
-        type="button"
-        onClick={handleLogout}
-        className="mt-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 md:mt-8"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-          <path d="M16 17l5-5-5-5M21 12H9" />
-        </svg>
-        {t("logout", { defaultValue: "Logout" })}
-      </button>
-    </>
+      <div className="border-t border-slate-200 p-4">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-bold text-slate-800 shadow-sm hover:bg-slate-50"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <path d="M16 17l5-5-5-5M21 12H9" />
+          </svg>
+          {t("logout", { defaultValue: "Logout" })}
+        </button>
+      </div>
+    </div>
   )
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 md:flex">
+    <div className="min-h-screen bg-slate-100 text-slate-900 lg:flex">
       {mobileSidebarOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
+        <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-slate-900/50" onClick={() => setMobileSidebarOpen(false)} />
-          <aside className="relative h-full w-72 overflow-y-auto border-r border-slate-300 bg-white px-4 py-4 shadow-lg">
-            {sidebar}
+          <aside className="relative h-full w-80 max-w-[86vw] overflow-hidden border-r border-slate-200 bg-white shadow-2xl">
+            {sidebarContent}
           </aside>
         </div>
       )}
 
-      <aside className="hidden border-b border-slate-300 bg-white/95 px-4 py-4 shadow-sm md:block md:min-h-screen md:w-72 md:border-b-0 md:border-r md:px-5 md:py-6 md:shadow-md">
-        {sidebar}
+      <aside className="hidden h-screen w-72 shrink-0 overflow-hidden border-r border-slate-200 bg-white shadow-sm lg:sticky lg:top-0 lg:block">
+        {sidebarContent}
       </aside>
 
-      <main className="flex-1 overflow-hidden">
-        <header className="flex h-14 items-center justify-between border-b border-slate-300 bg-white px-4 md:justify-end md:px-6">
+      <main className="min-w-0 flex-1 overflow-hidden">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-4 shadow-sm backdrop-blur lg:px-6">
           <button
             type="button"
             onClick={() => setMobileSidebarOpen(true)}
-            className="rounded-md p-1 text-slate-600 hover:bg-slate-100 md:hidden"
+            className="rounded-xl border border-slate-200 bg-white p-2 text-slate-700 shadow-sm hover:bg-slate-50 lg:hidden"
             aria-label="Open navigation"
           >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <div className="flex items-center gap-2 rounded-lg border border-slate-300 bg-slate-50 p-1 shadow-sm">
+
+          <div className="hidden min-w-0 lg:block">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Employee Scheduling</p>
+            <p className="truncate text-sm font-semibold text-slate-700">{navItems.find((item) => item.key === currentPage)?.label || t("dashboard")}</p>
+          </div>
+
+          <div className="ml-auto flex items-center gap-3">
+            <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1 shadow-sm">
             <button
               type="button"
               onClick={() => handleLanguageChange("en")}
@@ -276,10 +320,17 @@ function AuthenticatedApp({
             >
               {t("languageChineseTraditional")}
             </button>
+            </div>
+            <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm sm:flex">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-xs font-extrabold text-white">
+                {getUserInitials(authUser)}
+              </div>
+              <span className="max-w-40 truncate text-sm font-bold text-slate-800">{userName}</span>
+            </div>
           </div>
         </header>
 
-        <div className="h-[calc(100vh-56px)] overflow-y-auto p-4 md:p-8">{renderPage()}</div>
+        <div className="h-[calc(100vh-64px)] overflow-y-auto p-4 sm:p-6 lg:p-8">{renderPage()}</div>
       </main>
 
       {showLanguagePrompt ? (
