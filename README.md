@@ -1,13 +1,19 @@
 # Employee Scheduling System
 
-A web-based employee scheduling platform built with React, TailwindCSS, and Docker.
+A lightweight workforce scheduling and team management prototype built with React, Vite, TailwindCSS, Express, Postgres, and Docker.
 
-## Features
-- Dashboard
-- Employee management
-- Shift scheduling
-- Calendar planner
-- Vacation and shift request system
+## Current Demo Focus
+
+- Dashboard for managers
+- Employee profile and directory
+- Availability submission
+- Weekly planning view
+- Daily timetable
+- Team assignment and team leader selection
+- Requests
+- Printable operational reports
+
+See [docs/PHASED_PROTOTYPE_PLAN.md](docs/PHASED_PROTOTYPE_PLAN.md) for the phased implementation and test plan.
 
 ## Tech Stack
 
@@ -17,24 +23,42 @@ Frontend:
 - TailwindCSS
 
 Backend:
-- Node.js (planned)
+- Node.js / Express
+- Postgres
 
 Infrastructure:
 - Docker
-- Oracle Cloud VPS
+- Cloudflare Tunnel for the demo domain
 
 ## Project Structure
 
+```text
 employee-scheduler
-│
-├ frontend (React app)
-├ backend (API server)
-└ docker-compose.yml
+├── frontend
+├── backend
+├── docs
+└── docker-compose.yml
+```
 
-## Future Features
+## Demo Runtime Notes
 
-- Drag-and-drop scheduler
-- Employee availability tracking
-- Shift swapping
-- Role-based access
-- Notification system
+The public demo tunnel points to the frontend container:
+
+```text
+https://scheduler.fmtagency.online -> http://scheduler-frontend:5173
+```
+
+The frontend uses same-origin API calls and Vite proxies API routes to:
+
+```text
+http://scheduler-backend:4000
+```
+
+Do not call `scheduler.fmtagency.online:4000` from browser code.
+
+## Demo Accounts
+
+| Role | Username | Password |
+| --- | --- | --- |
+| Manager/Admin | `scheduler.admin@example.com` | `ChangeMe123!` |
+| Employee | `scheduler.employee@example.com` | `ChangeMe123!` |
