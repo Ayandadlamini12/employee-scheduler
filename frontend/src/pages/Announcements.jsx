@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { apiFetch } from "../config/api"
 import AnnouncementDetail from "./AnnouncementDetail"
+import EmptyState from "../components/EmptyState"
 
 function getEmployeeDisplayName(row, isChinese, fallbackKey = "created_by") {
   if (isChinese && row?.[`${fallbackKey}_chinese_name`]) {
@@ -222,8 +223,8 @@ export default function Announcements({ isAdmin }) {
             {t("announcements.loading")}
           </div>
         ) : sortedAnnouncements.length === 0 ? (
-          <div className="rounded-xl border border-slate-300 bg-white p-6 text-sm text-slate-600 shadow-sm">
-            {t("announcements.empty")}
+          <div className="rounded-xl border border-slate-300 bg-white shadow-sm">
+            <EmptyState message={t("announcements.empty")} />
           </div>
         ) : (
           sortedAnnouncements.map((announcement) => (

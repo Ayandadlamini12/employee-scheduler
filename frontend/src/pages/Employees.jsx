@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { apiFetch } from "../config/api"
+import EmptyState from "../components/EmptyState"
 
 function statusBadgeClass(status) {
   const normalized = String(status || "").toLowerCase()
@@ -103,8 +104,8 @@ export default function Employees() {
                 </tr>
               ) : employees.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-slate-500" colSpan={5}>
-                    No employees found.
+                  <td className="p-0" colSpan={5}>
+                    <EmptyState message="No employees found." />
                   </td>
                 </tr>
               ) : (

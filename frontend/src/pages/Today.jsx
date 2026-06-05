@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { apiFetch } from "../config/api"
+import EmptyState from "../components/EmptyState"
 
 function formatTime(value) {
   if (!value) return "-"
@@ -170,8 +171,8 @@ export default function Today() {
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-slate-500" colSpan={5}>
-                    {t("today.noShifts")}
+                  <td className="p-0" colSpan={5}>
+                    <EmptyState message={t("today.noShifts")} />
                   </td>
                 </tr>
               ) : (

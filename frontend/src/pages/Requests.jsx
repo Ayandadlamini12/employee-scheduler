@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { apiFetch } from "../config/api"
+import EmptyState from "../components/EmptyState"
 
 function formatDate(value, locale) {
   if (!value) return "-"
@@ -166,8 +167,8 @@ export default function Requests() {
                 </tr>
               ) : requests.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-slate-500" colSpan={6}>
-                    {t("noRequestsFound")}
+                  <td className="p-0" colSpan={6}>
+                    <EmptyState message={t("noRequestsFound")} />
                   </td>
                 </tr>
               ) : (
