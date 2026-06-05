@@ -3,6 +3,10 @@ BEGIN;
 -- Seed employees (upsert by unique email).
 -- Default login password for seeded users is ChangeMe123! and must be changed on first login.
 INSERT INTO employees (
+  -- Existing seeded users above
+  ('EMP-1006', 'Admin', 'User', 'Admin User', 'Admin User', 'en', 'manager', 'scrypt:1208b221ccaa77be8adc5eb11cfe95fd:a79202ff21bfdfa5cc20a77d4a36446a333cce9d1b06b735389b2a4a195f188f688da2d9ac856477e61672a0ab14374eff2a5855541539c95c037344280ef65d', FALSE, 'scheduler.admin@example.com', '+1-555-0106', 'Admin', 'full_time', 'active', '2023-01-01'),
+  ('EMP-1007', 'Employee', 'User', 'Employee User', 'Employee User', 'en', 'employee', 'scrypt:1208b221ccaa77be8adc5eb11cfe95fd:a79202ff21bfdfa5cc20a77d4a36446a333cce9d1b06b735389b2a4a195f188f688da2d9ac856477e61672a0ab14374eff2a5855541539c95c037344280ef65d', FALSE, 'scheduler.employee@example.com', '+1-555-0107', 'Employee', 'full_time', 'active', '2023-01-02'),
+
   employee_code,
   first_name,
   last_name,
