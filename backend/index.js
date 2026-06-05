@@ -209,6 +209,40 @@ function extractRequestedChangeTimes(requestRow) {
     return null
 }
 
+function normalizeRequestType(value) {
+    const requestType = String(value || "").trim().toLowerCase()
+    if (requestType === "change") return "availability_change"
+    if (["time_off", "shift_swap", "open_shift", "availability_change"].includes(requestType)) {
+        return requestType
+    }
+    return null
+}
+
+function validateRequestPayload({ requestType, scheduleId, targetEmployeeId, requestedStart, requestedEnd, reason }) {
+    if (!requestType) {
+        return "Valid request_type is required"
+    }
+
+    if (!String(reason || "").trim()) {
+        return "reason is required"
+    }
+
+    if (requestType === "shift_swap") {
+        if (!scheduleId) return "schedule_id is required for shift swap requests"
+        if (!targetEmployeeId) return "target_employee_id is required for shift swap requests"
+    }
+
+    if (requestType === "time_off") {
+        if (!requestedStart || !requestedEnd) return "requested_start and requested_end are required for time off requests"
+    }
+
+    if (requestType === "availability_change") {
+        if (!requestedStart || !requestedEnd) return "requested_start and requested_end are required for availability change requests"
+    }
+
+    return null
+}
+
 function normalizePreferredLanguage(value) {
     const language = String(value || "").trim()
 
@@ -1659,7 +1693,7 @@ app.post("/requests", requireAuth, async (req, res) => {
         requested_end,
         reason,
     } = req.body
-    const dbRequestType = request_type === "change" ? "availability_change" : request_type
+    const dbRequestType = normalizeRequestType(request_type)
 
     if (!employee_id || !request_type) {
         return res.status(400).json({
@@ -1676,7 +1710,70 @@ app.post("/requests", requireAuth, async (req, res) => {
         return res.status(403).json({ error: "Employees can only create requests for themselves" })
     }
 
+    const scheduleId = schedule_id ? Number(schedule_id) : null
+    const targetEmployeeId = target_employee_id ? Number(target_employee_id) : null
+    const ruleError = validateRequestPayload({
+        requestType: dbRequestType,
+        scheduleId,
+        targetEmployeeId,
+        requestedStart: requested_start,
+        requestedEnd: requested_end,
+        reason,
+    })
+
+    if (ruleError) {
+        return res.status(400).json({ error: ruleError })
+    }
+
+    if (targetEmployeeId && targetEmployeeId === employeeId) {
+        return res.status(400).json({ error: "target_employee_id must be different from employee_id" })
+    }
+
     try {
+        if (scheduleId) {
+            const scheduleLookup = await pool.query(
+                `
+                SELECT id, employee_id
+                FROM schedules
+                WHERE id = $1
+                LIMIT 1
+                `,
+                [scheduleId]
+            )
+
+            if (scheduleLookup.rowCount === 0) {
+                return res.status(400).json({ error: "Schedule not found" })
+            }
+
+            if (!isAdminRole(req.authUser.role) && Number(scheduleLookup.rows[0].employee_id) !== employeeId) {
+                return res.status(403).json({ error: "Employees can only request changes for their own schedules" })
+            }
+        }
+
+        if (targetEmployeeId) {
+            const targetLookup = await pool.query("SELECT id FROM employees WHERE id = $1 LIMIT 1", [targetEmployeeId])
+            if (targetLookup.rowCount === 0) {
+                return res.status(400).json({ error: "Target employee not found" })
+            }
+        }
+
+        const duplicatePending = await pool.query(
+            `
+            SELECT id
+            FROM requests
+            WHERE employee_id = $1
+              AND request_type = $2
+              AND status = 'pending'
+              AND COALESCE(schedule_id, 0) = COALESCE($3, 0)
+            LIMIT 1
+            `,
+            [employeeId, dbRequestType, scheduleId]
+        )
+
+        if (duplicatePending.rowCount > 0) {
+            return res.status(409).json({ error: "A pending request already exists for this item" })
+        }
+
         const result = await pool.query(
             `
             INSERT INTO requests (
@@ -1705,11 +1802,11 @@ app.post("/requests", requireAuth, async (req, res) => {
                 employeeId,
                 dbRequestType,
                 status ?? null,
-                schedule_id ?? null,
-                target_employee_id ?? null,
+                scheduleId,
+                targetEmployeeId,
                 requested_start ?? null,
                 requested_end ?? null,
-                reason ?? null,
+                String(reason || "").trim(),
             ]
         )
 
@@ -1911,6 +2008,39 @@ async function patchRequestStatus(req, res) {
         const requestRow = requestLookup.rows[0]
 
         if (status === "approved" && requestRow.schedule_id) {
+            if (requestRow.request_type === "shift_swap") {
+                if (!requestRow.target_employee_id) {
+                    await client.query("ROLLBACK")
+                    return res.status(400).json({ error: "Shift swap request has no replacement employee" })
+                }
+
+                try {
+                    await client.query(
+                        `
+                        UPDATE schedules
+                        SET
+                            employee_id = $1,
+                            notes = CONCAT(
+                                COALESCE(notes || E'\n', ''),
+                                'Replacement approved from request #',
+                                $2::text
+                            ),
+                            updated_at = NOW()
+                        WHERE id = $3
+                        `,
+                        [requestRow.target_employee_id, requestId, requestRow.schedule_id]
+                    )
+                } catch (scheduleError) {
+                    if (scheduleError.code === "23505") {
+                        await client.query("ROLLBACK")
+                        return res.status(409).json({
+                            error: "Replacement employee already has this shift on that date",
+                        })
+                    }
+                    throw scheduleError
+                }
+            }
+
             const requestedTimes = extractRequestedChangeTimes(requestRow)
 
             if (requestedTimes) {

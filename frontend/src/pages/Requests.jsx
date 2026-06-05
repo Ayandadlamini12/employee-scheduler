@@ -19,6 +19,14 @@ function formatTime(value) {
 function formatRequestedChange(request, isChinese, t) {
   const requestType = String(request.request_type || "").toLowerCase()
 
+  if (requestType === "time_off") {
+    return "Time off request"
+  }
+
+  if (requestType === "availability_change") {
+    return "Availability change"
+  }
+
   if (requestType === "shift_swap") {
     const replacementName = isChinese
       ? (request.target_employee_chinese_name || request.target_employee_english_name || request.target_employee_name)
@@ -137,6 +145,10 @@ export default function Requests() {
       <div>
         <h1 className="text-3xl font-bold text-slate-900">{t("adminRequestsTitle")}</h1>
         <p className="mt-1 text-sm text-slate-500">{t("adminRequestsSubtitle")}</p>
+        <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-800">
+          Rules: employees must give a reason. Time-off and availability changes require a date/time range.
+          Replacement approvals move the schedule to the selected replacement employee.
+        </div>
       </div>
 
       {error ? (
@@ -199,7 +211,7 @@ export default function Requests() {
                             disabled={!isPending || isUpdating}
                             className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            {t("approve")}
+                            {isUpdating ? "Updating..." : t("approve")}
                           </button>
                           <button
                             type="button"
