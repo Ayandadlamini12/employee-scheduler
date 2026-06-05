@@ -121,13 +121,200 @@ function isAdminRole(role) {
   return role === "team_leader" || role === "manager"
 }
 
+function AuthenticatedApp({
+  authUser,
+  isAdmin,
+  isChinese,
+  showLanguagePrompt,
+  handleLanguageChange,
+  handlePasswordChanged,
+  handleProfileUpdated,
+  handleLogout,
+}) {
+  const { t } = useTranslation()
+  const [page, setPage] = useState(isAdmin ? "dashboard" : "employeeDashboard")
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+
+  const defaultPage = isAdmin ? "dashboard" : "employeeDashboard"
+  const allowedPages = useMemo(
+    () => isAdmin
+      ? new Set(["dashboard", "today", "scheduler", "employees", "requests", "announcements", "profile"])
+      : new Set(["employeeDashboard", "announcements", "profile"]),
+    [isAdmin],
+  )
+  const currentPage = allowedPages.has(page) ? page : defaultPage
+
+  const navItems = useMemo(() => {
+    if (!isAdmin) {
+      return [
+        { key: "employeeDashboard", label: t("employeeDashboard.nav"), icon: "employeeDashboard" },
+        { key: "announcements", label: t("announcements.nav"), icon: "announcements" },
+        { key: "profile", label: t("profile.nav"), icon: "profile" },
+      ]
+    }
+
+    return [
+      { key: "dashboard", label: t("dashboard"), icon: "dashboard" },
+      { key: "today", label: t("today.nav"), icon: "today" },
+      { key: "scheduler", label: t("scheduler"), icon: "scheduler" },
+      { key: "employees", label: t("employees.label"), icon: "employees" },
+      { key: "requests", label: t("adminRequests"), icon: "requests" },
+      { key: "announcements", label: t("announcements.nav"), icon: "announcements" },
+      { key: "profile", label: t("profile.nav"), icon: "profile" },
+    ]
+  }, [isAdmin, t])
+
+  const renderPage = () => {
+    if (currentPage === "profile") {
+      return <Profile user={authUser} onProfileUpdated={handleProfileUpdated} onPasswordChanged={handlePasswordChanged} />
+    }
+
+    if (currentPage === "announcements") {
+      return <Announcements isAdmin={isAdmin} />
+    }
+
+    if (!isAdmin) {
+      return <EmployeeDashboard employeeId={String(authUser?.id || "")} />
+    }
+
+    if (currentPage === "today") return <Today />
+    if (currentPage === "scheduler") return <Scheduler />
+    if (currentPage === "employees") return <Employees />
+    if (currentPage === "requests") return <Requests />
+    return <Dashboard />
+  }
+
+  const sidebar = (
+    <>
+      <div className="flex items-center justify-between md:mb-8">
+        <h1 className="text-xl font-extrabold tracking-tight text-slate-950">{t("appTitle")}</h1>
+        <button type="button" onClick={() => setMobileSidebarOpen(false)} className="md:hidden rounded-md p-1 text-slate-500 hover:bg-slate-100">
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <nav className="flex gap-2 overflow-x-auto pb-1 md:block md:space-y-2 md:overflow-x-visible md:pb-0">
+        {navItems.map((item) => {
+          const isActive = currentPage === item.key
+          return (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => { setPage(item.key); setMobileSidebarOpen(false) }}
+              className={`inline-flex items-center gap-2 whitespace-nowrap rounded-lg border px-3 py-2 text-left text-sm font-semibold transition md:flex md:w-full ${
+                isActive
+                  ? "border-slate-900 bg-slate-900 text-white shadow-sm"
+                  : "border-slate-300 bg-white text-slate-800 hover:border-slate-400 hover:bg-slate-50"
+              }`}
+            >
+              <NavIcon icon={item.icon} />
+              {item.label}
+            </button>
+          )
+        })}
+      </nav>
+
+      <button
+        type="button"
+        onClick={handleLogout}
+        className="mt-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 md:mt-8"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <path d="M16 17l5-5-5-5M21 12H9" />
+        </svg>
+        {t("logout", { defaultValue: "Logout" })}
+      </button>
+    </>
+  )
+
+  return (
+    <div className="min-h-screen bg-slate-100 text-slate-900 md:flex">
+      {mobileSidebarOpen && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <div className="absolute inset-0 bg-slate-900/50" onClick={() => setMobileSidebarOpen(false)} />
+          <aside className="relative h-full w-72 overflow-y-auto border-r border-slate-300 bg-white px-4 py-4 shadow-lg">
+            {sidebar}
+          </aside>
+        </div>
+      )}
+
+      <aside className="hidden border-b border-slate-300 bg-white/95 px-4 py-4 shadow-sm md:block md:min-h-screen md:w-72 md:border-b-0 md:border-r md:px-5 md:py-6 md:shadow-md">
+        {sidebar}
+      </aside>
+
+      <main className="flex-1 overflow-hidden">
+        <header className="flex h-14 items-center justify-between border-b border-slate-300 bg-white px-4 md:justify-end md:px-6">
+          <button
+            type="button"
+            onClick={() => setMobileSidebarOpen(true)}
+            className="rounded-md p-1 text-slate-600 hover:bg-slate-100 md:hidden"
+            aria-label="Open navigation"
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <div className="flex items-center gap-2 rounded-lg border border-slate-300 bg-slate-50 p-1 shadow-sm">
+            <button
+              type="button"
+              onClick={() => handleLanguageChange("en")}
+              className={`rounded-md px-3 py-1 text-xs font-semibold ${
+                !isChinese ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-200"
+              }`}
+            >
+              {t("languageEnglish")}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleLanguageChange("zh-TW")}
+              className={`rounded-md px-3 py-1 text-xs font-semibold ${
+                isChinese ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-200"
+              }`}
+            >
+              {t("languageChineseTraditional")}
+            </button>
+          </div>
+        </header>
+
+        <div className="h-[calc(100vh-56px)] overflow-y-auto p-4 md:p-8">{renderPage()}</div>
+      </main>
+
+      {showLanguagePrompt ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-bold text-slate-900">{t("selectLanguageTitle")}</h2>
+            <p className="mt-2 text-sm text-slate-500">{t("selectLanguageBody")}</p>
+            <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => handleLanguageChange("en", true)}
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                {t("languageEnglish")}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLanguageChange("zh-TW", true)}
+                className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+              >
+                {t("languageChineseTraditional")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export default function App() {
   const { t, i18n } = useTranslation()
   const [authSession, setAuthSessionState] = useState(() => getAuthSession())
   const [isAuthChecking, setIsAuthChecking] = useState(() => Boolean(getAuthSession()?.token))
-  const [page, setPage] = useState("dashboard")
   const [showLanguagePrompt, setShowLanguagePrompt] = useState(false)
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   const authUser = authSession?.user || null
   const isAuthenticated = Boolean(authSession?.token && authUser)
@@ -198,20 +385,6 @@ export default function App() {
     setShowLanguagePrompt(isAuthenticated && !backendLanguage && !storedLanguage)
   }, [authUser?.preferred_language, i18n, isAuthenticated])
 
-  useEffect(() => {
-    if (!isAuthenticated || !authUser) return
-
-    if (authUser.must_change_password) return
-
-    const allowedPages = isAdmin
-      ? new Set(["dashboard", "today", "scheduler", "employees", "requests", "announcements", "profile"])
-      : new Set(["employeeDashboard", "announcements", "profile"])
-
-    if (!allowedPages.has(page)) {
-      setPage(isAdmin ? "dashboard" : "employeeDashboard")
-    }
-  }, [authUser, isAdmin, isAuthenticated, page])
-
   async function handleLanguageChange(language, closePrompt = false) {
     const normalizedLanguage = normalizeLanguage(language) || "en"
 
@@ -244,8 +417,6 @@ export default function App() {
 
   function handleLoginSuccess(nextSession) {
     setAuthSession(nextSession)
-    const nextIsAdmin = isAdminRole(nextSession?.user?.role)
-    setPage(nextIsAdmin ? "dashboard" : "employeeDashboard")
   }
 
   function handlePasswordChanged(nextSession) {
@@ -266,47 +437,6 @@ export default function App() {
 
   function handleLogout() {
     setAuthSession(null)
-    setPage("dashboard")
-  }
-
-  const navItems = useMemo(() => {
-    if (!isAdmin) {
-      return [
-        { key: "employeeDashboard", label: t("employeeDashboard.nav"), icon: "employeeDashboard" },
-        { key: "announcements", label: t("announcements.nav"), icon: "announcements" },
-        { key: "profile", label: t("profile.nav"), icon: "profile" },
-      ]
-    }
-
-    return [
-      { key: "dashboard", label: t("dashboard"), icon: "dashboard" },
-      { key: "today", label: t("today.nav"), icon: "today" },
-      { key: "scheduler", label: t("scheduler"), icon: "scheduler" },
-      { key: "employees", label: t("employees.label"), icon: "employees" },
-      { key: "requests", label: t("adminRequests"), icon: "requests" },
-      { key: "announcements", label: t("announcements.nav"), icon: "announcements" },
-      { key: "profile", label: t("profile.nav"), icon: "profile" },
-    ]
-  }, [isAdmin, t])
-
-  const renderPage = () => {
-    if (page === "profile") {
-      return <Profile user={authUser} onProfileUpdated={handleProfileUpdated} onPasswordChanged={handlePasswordChanged} />
-    }
-
-    if (page === "announcements") {
-      return <Announcements isAdmin={isAdmin} />
-    }
-
-    if (!isAdmin) {
-      return <EmployeeDashboard employeeId={String(authUser?.id || "")} />
-    }
-
-    if (page === "today") return <Today />
-    if (page === "scheduler") return <Scheduler />
-    if (page === "employees") return <Employees />
-    if (page === "requests") return <Requests />
-    return <Dashboard />
   }
 
   if (isAuthChecking) {
@@ -331,130 +461,16 @@ export default function App() {
     )
   }
 
-  const sidebar = (
-    <>
-      <div className="flex items-center justify-between md:mb-8">
-        <h1 className="text-xl font-extrabold tracking-tight text-slate-950">{t("appTitle")}</h1>
-        <button type="button" onClick={() => setMobileSidebarOpen(false)} className="md:hidden rounded-md p-1 text-slate-500 hover:bg-slate-100">
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-
-      <nav className="flex gap-2 overflow-x-auto pb-1 md:block md:space-y-2 md:overflow-x-visible md:pb-0">
-        {navItems.map((item) => {
-          const isActive = page === item.key
-          return (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => { setPage(item.key); setMobileSidebarOpen(false) }}
-              className={`inline-flex items-center gap-2 whitespace-nowrap rounded-lg border px-3 py-2 text-left text-sm font-semibold transition md:flex md:w-full ${
-                isActive
-                  ? "border-slate-900 bg-slate-900 text-white shadow-sm"
-                  : "border-slate-300 bg-white text-slate-800 hover:border-slate-400 hover:bg-slate-50"
-              }`}
-            >
-              <NavIcon icon={item.icon} />
-              {item.label}
-            </button>
-          )
-        })}
-      </nav>
-
-      <button
-        type="button"
-        onClick={handleLogout}
-        className="mt-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 md:mt-8"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-          <path d="M16 17l5-5-5-5M21 12H9" />
-        </svg>
-        {t("logout", { defaultValue: "Logout" })}
-      </button>
-    </>
-  )
-
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 md:flex">
-      {/* Mobile sidebar overlay */}
-      {mobileSidebarOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
-          <div className="absolute inset-0 bg-slate-900/50" onClick={() => setMobileSidebarOpen(false)} />
-          <aside className="relative h-full w-72 overflow-y-auto border-r border-slate-300 bg-white px-4 py-4 shadow-lg">
-            {sidebar}
-          </aside>
-        </div>
-      )}
-
-      {/* Desktop sidebar */}
-      <aside className="hidden border-b border-slate-300 bg-white/95 px-4 py-4 shadow-sm md:block md:min-h-screen md:w-72 md:border-b-0 md:border-r md:px-5 md:py-6 md:shadow-md">
-        {sidebar}
-      </aside>
-
-      <main className="flex-1 overflow-hidden">
-        <header className="flex h-14 items-center justify-between border-b border-slate-300 bg-white px-4 md:justify-end md:px-6">
-          <button
-            type="button"
-            onClick={() => setMobileSidebarOpen(true)}
-            className="rounded-md p-1 text-slate-600 hover:bg-slate-100 md:hidden"
-            aria-label="Open navigation"
-          >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <div className="flex items-center gap-2 rounded-lg border border-slate-300 bg-slate-50 p-1 shadow-sm">
-            <button
-              type="button"
-              onClick={() => handleLanguageChange("en")}
-              className={`rounded-md px-3 py-1 text-xs font-semibold ${
-                !isChinese ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-200"
-              }`}
-            >
-              {t("languageEnglish")}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleLanguageChange("zh-TW")}
-              className={`rounded-md px-3 py-1 text-xs font-semibold ${
-                isChinese ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-200"
-              }`}
-            >
-              {t("languageChineseTraditional")}
-            </button>
-          </div>
-        </header>
-
-        <div className="h-[calc(100vh-56px)] overflow-y-auto p-4 md:p-8">{renderPage()}</div>
-      </main>
-
-      {showLanguagePrompt ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-bold text-slate-900">{t("selectLanguageTitle")}</h2>
-            <p className="mt-2 text-sm text-slate-500">{t("selectLanguageBody")}</p>
-            <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => handleLanguageChange("en", true)}
-                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                {t("languageEnglish")}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleLanguageChange("zh-TW", true)}
-                className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-              >
-                {t("languageChineseTraditional")}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </div>
+    <AuthenticatedApp
+      authUser={authUser}
+      isAdmin={isAdmin}
+      isChinese={isChinese}
+      showLanguagePrompt={showLanguagePrompt}
+      handleLanguageChange={handleLanguageChange}
+      handlePasswordChanged={handlePasswordChanged}
+      handleProfileUpdated={handleProfileUpdated}
+      handleLogout={handleLogout}
+    />
   )
 }
