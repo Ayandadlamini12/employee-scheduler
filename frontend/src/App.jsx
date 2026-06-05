@@ -6,6 +6,10 @@ import Today from "./pages/Today"
 import Scheduler from "./pages/Scheduler"
 import Employees from "./pages/Employees"
 import Requests from "./pages/Requests"
+import Availability from "./pages/Availability"
+import TeamPlanner from "./pages/TeamPlanner"
+import Reports from "./pages/Reports"
+import AuditLog from "./pages/AuditLog"
 import Login from "./pages/Login"
 import ChangePassword from "./pages/ChangePassword"
 import Announcements from "./pages/Announcements"
@@ -85,6 +89,43 @@ function NavIcon({ icon }) {
     )
   }
 
+  if (icon === "availability") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={commonClass}>
+        <rect x="3" y="4" width="18" height="18" rx="2" />
+        <path d="M16 2v4M8 2v4M3 10h18M8 15l2 2 5-5" />
+      </svg>
+    )
+  }
+
+  if (icon === "teams") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={commonClass}>
+        <circle cx="8" cy="7" r="4" />
+        <path d="M2 21a6 6 0 0 1 12 0" />
+        <path d="M17 11a3 3 0 1 0 0-6M19 21a5 5 0 0 0-4-4.9" />
+      </svg>
+    )
+  }
+
+  if (icon === "reports") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={commonClass}>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <path d="M14 2v6h6M8 13h8M8 17h5" />
+      </svg>
+    )
+  }
+
+  if (icon === "audit") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={commonClass}>
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <path d="M9 12l2 2 4-5" />
+      </svg>
+    )
+  }
+
   if (icon === "profile") {
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={commonClass}>
@@ -146,8 +187,8 @@ function AuthenticatedApp({
   const defaultPage = isAdmin ? "dashboard" : "employeeDashboard"
   const allowedPages = useMemo(
     () => isAdmin
-      ? new Set(["dashboard", "today", "scheduler", "employees", "requests", "announcements", "profile"])
-      : new Set(["employeeDashboard", "announcements", "profile"]),
+      ? new Set(["dashboard", "today", "scheduler", "teams", "availability", "reports", "employees", "requests", "audit", "announcements", "profile"])
+      : new Set(["employeeDashboard", "availability", "announcements", "profile"]),
     [isAdmin],
   )
   const currentPage = allowedPages.has(page) ? page : defaultPage
@@ -156,6 +197,7 @@ function AuthenticatedApp({
     if (!isAdmin) {
       return [
         { key: "employeeDashboard", label: t("employeeDashboard.nav"), icon: "employeeDashboard" },
+        { key: "availability", label: t("availability.nav", { defaultValue: "Availability" }), icon: "availability" },
         { key: "announcements", label: t("announcements.nav"), icon: "announcements" },
         { key: "profile", label: t("profile.nav"), icon: "profile" },
       ]
@@ -165,8 +207,12 @@ function AuthenticatedApp({
       { key: "dashboard", label: t("dashboard"), icon: "dashboard" },
       { key: "today", label: t("today.nav"), icon: "today" },
       { key: "scheduler", label: t("scheduler"), icon: "scheduler" },
+      { key: "teams", label: t("teamPlanner.nav", { defaultValue: "Team Planner" }), icon: "teams" },
+      { key: "availability", label: t("availability.nav", { defaultValue: "Availability" }), icon: "availability" },
+      { key: "reports", label: t("reports.nav", { defaultValue: "Reports" }), icon: "reports" },
       { key: "employees", label: t("employees.label"), icon: "employees" },
       { key: "requests", label: t("adminRequests"), icon: "requests" },
+      { key: "audit", label: t("audit.nav", { defaultValue: "Audit Log" }), icon: "audit" },
       { key: "announcements", label: t("announcements.nav"), icon: "announcements" },
       { key: "profile", label: t("profile.nav"), icon: "profile" },
     ]
@@ -181,14 +227,21 @@ function AuthenticatedApp({
       return <Announcements isAdmin={isAdmin} />
     }
 
+    if (currentPage === "availability") {
+      return <Availability user={authUser} isAdmin={isAdmin} />
+    }
+
     if (!isAdmin) {
       return <EmployeeDashboard employeeId={String(authUser?.id || "")} />
     }
 
     if (currentPage === "today") return <Today />
     if (currentPage === "scheduler") return <Scheduler />
+    if (currentPage === "teams") return <TeamPlanner />
+    if (currentPage === "reports") return <Reports />
     if (currentPage === "employees") return <Employees />
     if (currentPage === "requests") return <Requests />
+    if (currentPage === "audit") return <AuditLog />
     return <Dashboard />
   }
 

@@ -11,3 +11,24 @@
     @apply min-h-screen;
   }
 }
+
+@media print {
+  body {
+    background: white !important;
+  }
+
+  button,
+  aside,
+  header {
+    display: none !important;
+  }
+
+  main,
+  #root {
+    min-height: auto !important;
+  }
+
+  * {
+    box-shadow: none !important;
+  }
+}
