@@ -127,6 +127,7 @@ export default function App() {
   const [isAuthChecking, setIsAuthChecking] = useState(() => Boolean(getAuthSession()?.token))
   const [page, setPage] = useState("dashboard")
   const [showLanguagePrompt, setShowLanguagePrompt] = useState(false)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   const authUser = authSession?.user || null
   const isAuthenticated = Boolean(authSession?.token && authUser)
@@ -329,8 +330,6 @@ export default function App() {
       />
     )
   }
-
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   const sidebar = (
     <>
